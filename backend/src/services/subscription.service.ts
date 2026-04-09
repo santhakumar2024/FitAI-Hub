@@ -25,7 +25,7 @@ const razorpay = new Razorpay({
 // ─────────────────────────────────────────
 // CREATE RAZORPAY ORDER
 // ─────────────────────────────────────────
-export const createSubscriptionOrder = async (userId: string, planType: string) => {
+export const createSubscriptionOrder = async (userId: string, planType: string, gymId?: string) => {
   const amount = PLAN_AMOUNTS[planType];
   if (!amount) {
     throw new AppError(`Invalid plan type: ${planType}`, 400);
@@ -35,22 +35,48 @@ export const createSubscriptionOrder = async (userId: string, planType: string) 
     const order = await razorpay.orders.create({
       amount,
       currency: 'INR',
-      receipt: `fitai_${userId}_${Date.now()}`,
-      notes: { userId, planType },
+      receipt: `fitai_${userId}_${gymId || 'user'}_${Date.now()}`,
+      notes: { userId, planType, gymId: gymId || '' },
     });
 
     // Store the order ID in subscription
-    await prisma.subscription.upsert({
-      where: { userId },
-      create: {
-        userId,
-        planType: planType as PlanType,
-        status: SubscriptionStatus.trial,
-        razorpayOrderId: order.id,
-        amount,
-      },
-      update: { razorpayOrderId: order.id, planType: planType as PlanType, amount },
-    });
+    if (gymId) {
+      // Gym-level subscription
+      await prisma.subscription.upsert({
+        where: { gymId },
+        create: {
+          userId,
+          gymId,
+          planType: planType as PlanType,
+          status: SubscriptionStatus.trial,
+          razorpayOrderId: order.id,
+          amount,
+        },
+        update: { razorpayOrderId: order.id, planType: planType as PlanType, amount },
+      });
+    } else {
+      // User-level subscription (Check for existing non-gym subscription)
+      const existingUserSub = await prisma.subscription.findFirst({
+        where: { userId, gymId: null }
+      });
+
+      if (existingUserSub) {
+        await prisma.subscription.update({
+          where: { id: existingUserSub.id },
+          data: { razorpayOrderId: order.id, planType: planType as PlanType, amount }
+        });
+      } else {
+        await prisma.subscription.create({
+          data: {
+            userId,
+            planType: planType as PlanType,
+            status: SubscriptionStatus.trial,
+            razorpayOrderId: order.id,
+            amount,
+          }
+        });
+      }
+    }
 
     return {
       orderId: order.id,
@@ -154,8 +180,10 @@ export const handleRazorpayWebhook = async (
 // ─────────────────────────────────────────
 // GET SUBSCRIPTION STATUS
 // ─────────────────────────────────────────
-export const getSubscriptionStatus = async (userId: string) => {
-  const subscription = await prisma.subscription.findUnique({ where: { userId } });
+export const getSubscriptionStatus = async (userId: string, gymId?: string) => {
+  const subscription = await prisma.subscription.findFirst({ 
+    where: gymId ? { gymId } : { userId, gymId: null } 
+  });
 
   if (!subscription) {
     throw new AppError('No subscription found', 404);
@@ -173,15 +201,17 @@ export const getSubscriptionStatus = async (userId: string) => {
 // ─────────────────────────────────────────
 // CANCEL SUBSCRIPTION
 // ─────────────────────────────────────────
-export const cancelSubscription = async (userId: string) => {
-  const subscription = await prisma.subscription.findUnique({ where: { userId } });
+export const cancelSubscription = async (userId: string, gymId?: string) => {
+  const subscription = await prisma.subscription.findFirst({ 
+    where: gymId ? { gymId } : { userId, gymId: null } 
+  });
 
   if (!subscription) {
     throw new AppError('No subscription found', 404);
   }
 
   await prisma.subscription.update({
-    where: { userId },
+    where: { id: subscription.id },
     data: {
       status: SubscriptionStatus.cancelled,
       cancelledAt: new Date(),

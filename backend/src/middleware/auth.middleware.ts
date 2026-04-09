@@ -111,25 +111,38 @@ export const subscriptionGuard = async (
       return;
     }
 
-    const subscription = await prisma.subscription.findUnique({
-      where: { userId: req.user.userId },
-    });
+    const { userId, role } = req.user;
+    const { gymId } = req.params;
+
+    // Determine which subscription to check
+    let subscription;
+    if (gymId && role === 'GYM_OWNER') {
+      // Check specific gym subscription
+      subscription = await prisma.subscription.findUnique({
+        where: { gymId },
+      });
+    } else {
+      // Check user-level subscription (Normal User, Trainer, or Global Owner check)
+      subscription = await prisma.subscription.findFirst({
+        where: { userId, gymId: null },
+      });
+    }
 
     if (!subscription) {
-      logger.error(`Subscription check failed: No record for user ${req.user.userId}`);
-      forbidden(res, 'No active subscription found. Please register/login again.');
+      logger.error(`Subscription check failed: No record for ${gymId ? `gym ${gymId}` : `user ${userId}`}`);
+      forbidden(res, 'No active subscription found for this resource. Please subscribe.');
       return;
     }
 
     if (subscription.status === 'trial') {
       if (subscription.trialEndsAt && subscription.trialEndsAt < new Date()) {
-        logger.error(`Subscription check failed: Trial expired for user ${req.user.userId}`);
+        logger.error(`Subscription check failed: Trial expired for ${gymId ? `gym ${gymId}` : `user ${userId}`}`);
         forbidden(res, 'Free trial expired. Please subscribe to continue.');
         return;
       }
-    } else if (subscription.status === 'expired' || subscription.status === 'cancelled') {
-      logger.error(`Subscription check failed: Status is ${subscription.status} for user ${req.user.userId}`);
-      forbidden(res, 'Subscription expired. Please renew to continue.');
+    } else if (subscription.status === 'expired' || subscription.status === 'cancelled' || subscription.status === 'past_due') {
+      logger.error(`Subscription check failed: Status is ${subscription.status} for ${gymId ? `gym ${gymId}` : `user ${userId}`}`);
+      forbidden(res, 'Subscription expired or past due. Please renew to continue.');
       return;
     }
 

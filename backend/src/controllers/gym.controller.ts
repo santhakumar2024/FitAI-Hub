@@ -6,7 +6,9 @@ import { generateQuickTip } from '../services/ai.service';
 
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/db';
-import { ok, created, notFound, forbidden, conflict } from '../utils/apiResponse';
+import { ok, created, noContent } from '../utils/apiResponse';
+import { PlanType, SubscriptionStatus } from '@prisma/client';
+import { addDays } from '../utils/helpers';
 import { Role } from '@prisma/client';
 
 // ─────────────────────────────────────────
@@ -14,16 +16,42 @@ import { Role } from '@prisma/client';
 // ─────────────────────────────────────────
 export const createGym = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const ownerId = req.user!.userId;
-
-    // Extract only the fields Prisma accepts — never pass relational or computed fields
+    const userId = req.user!.userId;
     const { name, address, city, state, pincode, phone, email, logoUrl, description } = req.body;
 
-    const gym = await prisma.gym.create({
-      data: { name, address, city, state, pincode, phone, email, logoUrl, description, ownerId },
+    const gym = await prisma.$transaction(async (tx) => {
+      // 1. Create the Gym
+      const newGym = await tx.gym.create({
+        data: { name, address, city, state, pincode, phone, email, logoUrl, description, ownerId: userId },
+      });
+
+      // 2. Create Platform Subscription for this gym (30-day trial)
+      await tx.subscription.create({
+        data: {
+          userId,
+          gymId: newGym.id,
+          planType: PlanType.OWNER_500,
+          status: SubscriptionStatus.trial,
+          trialEndsAt: addDays(new Date(), 30),
+        },
+      });
+
+      // 3. Create Default Membership Plans for Trainees
+      const defaultPlans = [
+        { name: 'Monthly', durationMonths: 1, price: 1000 },
+        { name: '3 Months', durationMonths: 3, price: 2500 },
+        { name: '6 Months', durationMonths: 6, price: 4500 },
+        { name: 'Yearly', durationMonths: 12, price: 8000 },
+      ];
+
+      await tx.gymMembershipPlan.createMany({
+        data: defaultPlans.map(p => ({ ...p, gymId: newGym.id })),
+      });
+
+      return newGym;
     });
 
-    created(res, 'Gym created successfully', gym);
+    created(res, 'Gym created successfully with trial subscription', gym);
   } catch (error) {
     next(error);
   }
@@ -32,10 +60,17 @@ export const createGym = async (req: Request, res: Response, next: NextFunction)
 // ─────────────────────────────────────────
 // GET /gym
 // ─────────────────────────────────────────
+
 export const getMyGyms = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
-    const gyms = await prisma.gym.findMany({ where: { ownerId } });
+    const gyms = await prisma.gym.findMany({ 
+      where: { ownerId },
+      include: { 
+        subscription: true,
+        membershipPlans: { where: { isActive: true } }
+      }
+    });
     ok(res, 'Gyms retrieved', gyms);
   } catch (error) {
     next(error);
@@ -50,6 +85,8 @@ export const getGymDetails = async (req: Request, res: Response, next: NextFunct
     const gym = await prisma.gym.findFirst({
       where: { id: gymId, ownerId },
       include: {
+        subscription: true,
+        membershipPlans: { where: { isActive: true } },
         trainers: { select: { id: true, name: true, email: true, phone: true, photoUrl: true } },
         clientAssignments: {
           where: { isActive: true },
@@ -366,7 +403,7 @@ export const addGymMember = async (req: Request, res: Response, next: NextFuncti
   try {
     const ownerId = req.user!.userId;
     const { gymId } = req.params;
-    const { memberEmail, memberPhone } = req.body;
+    const { memberEmail, memberPhone, membershipPlanId } = req.body;
 
     if (!memberEmail && !memberPhone) {
       res.status(400).json({ success: false, message: 'Provide either memberEmail or memberPhone' });
@@ -388,25 +425,50 @@ export const addGymMember = async (req: Request, res: Response, next: NextFuncti
 
     if (!member) { notFound(res, 'User not found. Ask them to register on FitAI Hub first.'); return; }
 
-    const existing = await prisma.clientTrainer.findFirst({
+    // Add as client assignment (legacy/core logic)
+    const existingAssignment = await prisma.clientTrainer.findFirst({
       where: { clientId: member.id, gymId: gym.id, isActive: true },
     });
-    if (existing) { conflict(res, 'Member already in this gym'); return; }
+    
+    if (!existingAssignment) {
+      await prisma.clientTrainer.create({
+        data: { clientId: member.id, gymId: gym.id, trainerId: ownerId },
+      });
+    }
 
-    const assignment = await prisma.clientTrainer.create({
-      data: { clientId: member.id, gymId: gym.id, trainerId: ownerId },
-    });
+    // Handle Membership Plan Assignment if provided
+    let membership = null;
+    if (membershipPlanId) {
+       const plan = await prisma.gymMembershipPlan.findUnique({ where: { id: membershipPlanId } });
+       if (plan) {
+         const start = new Date();
+         const end = new Date();
+         end.setMonth(start.getMonth() + plan.durationMonths);
+         
+         membership = await prisma.gymMembership.create({
+           data: {
+             userId: member.id,
+             gymId: gym.id,
+             membershipPlanId,
+             startDate: start,
+             endDate: end,
+             paidAmount: plan.price,
+             status: 'active'
+           }
+         });
+       }
+    }
 
     await prisma.notification.create({
       data: {
         userId: member.id,
         type: 'welcome',
         title: `🏋️ Welcome to ${gym.name}!`,
-        body: `You have been added as a member at ${gym.name}.`,
+        body: `You have been added as a member at ${gym.name}${membership ? ` with a ${membershipPlanId} plan.` : '.'}`,
       },
     });
 
-    created(res, 'Member added to gym', { memberId: member.id, memberName: member.name });
+    created(res, 'Member added to gym successfully', { memberId: member.id, memberName: member.name, membership });
   } catch (error) {
     next(error);
   }

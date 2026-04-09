@@ -62,7 +62,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   progressLogs        ProgressLog[]
   refreshTokens       RefreshToken[]
-  subscription        Subscription?
+  subscriptions       Subscription[]
+  gymMemberships      GymMembership[]
   receivedNotes       TrainerNote[]        @relation("TrainerNoteClient")
   trainerNotes        TrainerNote[]        @relation("TrainerNoteAuthor")
   gym                 Gym?                 @relation("GymTrainers", fields: [gymId], references: [id])
@@ -91,6 +92,9 @@ model Gym {
   clientAssignments ClientTrainer[]
   owner             User            @relation("GymOwner", fields: [ownerId], references: [id])
   trainers          User[]          @relation("GymTrainers")
+  subscription      Subscription?
+  membershipPlans   GymMembershipPlan[]
+  gymMemberships    GymMembership[]
 
   @@index([ownerId])
   @@map("gyms")
@@ -116,7 +120,8 @@ model ClientTrainer {
 
 model Subscription {
   id                     String             @id @default(cuid())
-  userId                 String             @unique
+  userId                 String
+  gymId                  String?            @unique
   planType               PlanType           @default(FREE_TRIAL)
   status                 SubscriptionStatus @default(trial)
   trialEndsAt            DateTime?
@@ -131,10 +136,51 @@ model Subscription {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym                    Gym?               @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([gymId])
   @@index([status])
   @@map("subscriptions")
+}
+
+model GymMembershipPlan {
+  id              String           @id @default(cuid())
+  gymId           String
+  name            String
+  price           Float
+  durationMonths  Int
+  description     String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  gym             Gym              @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberships     GymMembership[]
+
+  @@index([gymId])
+  @@map("gym_membership_plans")
+}
+
+model GymMembership {
+  id                  String             @id @default(cuid())
+  userId              String
+  gymId               String
+  membershipPlanId    String
+  startDate           DateTime           @default(now())
+  endDate             DateTime?
+  status              SubscriptionStatus @default(active)
+  paidAmount          Float?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym                 Gym                @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  plan                GymMembershipPlan  @relation(fields: [membershipPlanId], references: [id])
+
+  @@index([userId])
+  @@index([gymId])
+  @@index([membershipPlanId])
+  @@map("gym_memberships")
 }
 
 model AIPlan {

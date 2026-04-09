@@ -104,16 +104,26 @@ function GymProfileCard({ gym, colors }: { gym: any; colors: any }) {
               )}
             </View>
           </View>
-          <View style={{
-            backgroundColor: gym.isActive ? '#22c55e20' : '#ef444420',
-            borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4,
-          }}>
-            <Text style={{
-              fontSize: 11, fontWeight: '700',
-              color: gym.isActive ? '#22c55e' : '#ef4444',
+          <View style={{ gap: 6 }}>
+            <View style={{
+              backgroundColor: gym.isActive ? '#22c55e20' : '#ef444420',
+              borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-end'
             }}>
-              {gym.isActive ? 'ACTIVE' : 'INACTIVE'}
-            </Text>
+              <Text style={{
+                fontSize: 11, fontWeight: '700',
+                color: gym.isActive ? '#22c55e' : '#ef4444',
+              }}>
+                {gym.isActive ? 'ACTIVE' : 'INACTIVE'}
+              </Text>
+            </View>
+            <View style={{
+                backgroundColor: gym.subscription?.status === 'trial' ? `${colors.primary}20` : '#22c55e20',
+                borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-end'
+            }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: gym.subscription?.status === 'trial' ? colors.primary : '#16a34a' }}>
+                    {gym.subscription?.status?.toUpperCase() || 'NO SUBSCRIPTION'}
+                </Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
@@ -133,6 +143,14 @@ function GymProfileCard({ gym, colors }: { gym: any; colors: any }) {
               </View>
             </View>
           ))}
+          {gym.subscription?.trialEndsAt && (
+             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: `${colors.primary}10`, padding: 10, borderRadius: 12, marginTop: 4 }}>
+                <Ionicons name="timer-outline" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                    Trial ends {new Date(gym.subscription.trialEndsAt).toLocaleDateString()}
+                </Text>
+             </View>
+          )}
         </View>
       )}
 

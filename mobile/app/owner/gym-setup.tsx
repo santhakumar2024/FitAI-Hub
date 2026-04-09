@@ -148,6 +148,45 @@ export default function GymSetupScreen() {
               style={{ backgroundColor: colors.bgSurface, padding: 16, borderRadius: 16, color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, minHeight: 120, textAlignVertical: 'top' }}
             />
           </View>
+
+          {/* Membership Plans Management */}
+          {gymId && (
+            <View style={{ marginTop: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textSecondary }}>MEMBERSHIP PLANS</Text>
+              </View>
+              {(gym as any).membershipPlans?.map((plan: any) => (
+                <View key={plan.id} style={{ 
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+                  backgroundColor: colors.bgSurface, padding: 14, borderRadius: 16, 
+                  borderWidth: 1, borderColor: colors.border, marginBottom: 10 
+                }}>
+                  <View>
+                    <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{plan.name}</Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{plan.durationMonths} Months</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>₹</Text>
+                    <TextInput 
+                      defaultValue={plan.price.toString()}
+                      onBlur={async (e) => {
+                        const newPrice = parseFloat(e.nativeEvent.text);
+                        if (!isNaN(newPrice)) {
+                          await api.patch(`/gym/${gymId}/plans/${plan.id}`, { price: newPrice });
+                        }
+                      }}
+                      keyboardType="numeric"
+                      style={{ 
+                        color: colors.primary, fontWeight: '900', fontSize: 16,
+                        minWidth: 60, textAlign: 'right',
+                        backgroundColor: 'rgba(0,0,0,0.05)', padding: 6, borderRadius: 8
+                      }}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

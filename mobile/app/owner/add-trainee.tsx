@@ -19,6 +19,23 @@ export default function AddTraineeScreen() {
   const [phone, setPhone] = useState('');
   const [adding, setAdding] = useState(false);
   const [method, setMethod] = useState<'email' | 'phone'>('email');
+  const [plans, setPlans] = useState<any[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (gymId) fetchPlans();
+  }, [gymId]);
+
+  const fetchPlans = async () => {
+    try {
+      const res = await api.get(`/gym/${gymId}/plans`);
+      const fetched = res.data.data || [];
+      setPlans(fetched);
+      if (fetched.length > 0) setSelectedPlanId(fetched[0].id);
+    } catch (err) {
+      console.error('Fetch plans error:', err);
+    }
+  };
 
   const handleAdd = async () => {
     if (!gymId) {
@@ -32,7 +49,10 @@ export default function AddTraineeScreen() {
     }
     setAdding(true);
     try {
-      const payload = method === 'email' ? { memberEmail: identifier } : { memberPhone: identifier };
+      const payload = {
+        ...(method === 'email' ? { memberEmail: identifier } : { memberPhone: identifier }),
+        membershipPlanId: selectedPlanId,
+      };
       const res = await api.post(`/gym/${gymId}/members`, payload);
       const name = res.data.data?.memberName || 'Member';
       Alert.alert('Added! 🎉', `${name} has been added to your gym.`, [
@@ -120,6 +140,36 @@ export default function AddTraineeScreen() {
                   color: colors.textPrimary, borderWidth: 1, borderColor: colors.border, fontSize: 15,
                 }}
               />
+            </View>
+          )}
+
+          {/* Membership Plan Selection */}
+          {plans.length > 0 && (
+            <View style={{ marginBottom: 24 }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textSecondary, marginBottom: 12 }}>SELECT MEMBERSHIP PLAN</Text>
+              <View style={{ gap: 10 }}>
+                {plans.map((plan) => (
+                  <TouchableOpacity
+                    key={plan.id}
+                    onPress={() => setSelectedPlanId(plan.id)}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bgSurface, padding: 16, borderRadius: 16,
+                      borderWidth: 2, borderColor: selectedPlanId === plan.id ? colors.primary : colors.border,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>{plan.name}</Text>
+                      <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 2 }}>{plan.durationMonths} Months Access</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                       <Text style={{ fontSize: 18, fontWeight: '900', color: colors.primary }}>₹{plan.price}</Text>
+                       {selectedPlanId === plan.id && (
+                         <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginTop: 4 }} />
+                       )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
