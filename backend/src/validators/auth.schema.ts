@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 const phoneRegex = /^(\+91)?[6-9]\d{9}$/;
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$%&*!])[A-Za-z\d@#$%&*!]{12,16}$/;
 
 export const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -12,6 +12,8 @@ export const registerSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string().min(8, 'Please confirm your password'),
   phone: z.string().optional(),
+  role: z.enum(['NORMAL_USER', 'GYM_OWNER', 'TRAINER']).default('NORMAL_USER'),
+  isFreelance: z.boolean().optional().default(false),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
