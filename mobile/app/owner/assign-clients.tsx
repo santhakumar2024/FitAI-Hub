@@ -1,42 +1,52 @@
 // app/owner/assign-clients.tsx
+// Client Assignments screen — Updated for multi-gym support
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
 
 export default function AssignClientsScreen() {
   const { colors } = useTheme();
+  const { gymId } = useLocalSearchParams(); // Path parameter from dashboard
+
   const [members, setMembers] = useState([]);
   const [trainers, setTrainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<any>(null);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (gymId) {
+      fetchData();
+    } else {
+      Alert.alert('Error', 'No gym selected');
+      router.back();
+    }
+  }, [gymId]);
 
   const fetchData = async () => {
     try {
       const [membersRes, trainersRes] = await Promise.all([
-        api.get('/gym/members'),
-        api.get('/gym/trainers')
+        api.get(`/gym/${gymId}/members`),
+        api.get(`/gym/${gymId}/trainers`)
       ]);
       setMembers(membersRes.data.data);
       setTrainers(trainersRes.data.data);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      Alert.alert('Error', 'Failed to load members or trainers');
     } finally {
       setLoading(false);
     }
   };
 
   const assignTrainer = async (trainerId: string) => {
-    if (!selectedMember) return;
+    if (!selectedMember || !gymId) return;
     try {
-      await api.post('/gym/assign-client', {
+      await api.post(`/gym/${gymId}/assign-client`, {
         clientId: selectedMember.clientId,
         trainerId
       });

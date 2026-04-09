@@ -1,24 +1,30 @@
 // app/owner/add-trainee.tsx
-// Add a new trainee/member to the gym by email or phone
+// Add a new trainee/member to the gym — Updated for multi-gym support
 
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
 
 export default function AddTraineeScreen() {
   const { colors } = useTheme();
+  const { gymId } = useLocalSearchParams(); // Path parameter from dashboard
+
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [adding, setAdding] = useState(false);
   const [method, setMethod] = useState<'email' | 'phone'>('email');
 
   const handleAdd = async () => {
+    if (!gymId) {
+      Alert.alert('Error', 'No gym selected');
+      return;
+    }
     const identifier = method === 'email' ? email.trim() : phone.trim();
     if (!identifier) {
       Alert.alert('Required', `Please enter the member's ${method}`);
@@ -27,7 +33,7 @@ export default function AddTraineeScreen() {
     setAdding(true);
     try {
       const payload = method === 'email' ? { memberEmail: identifier } : { memberPhone: identifier };
-      const res = await api.post('/gym/members', payload);
+      const res = await api.post(`/gym/${gymId}/members`, payload);
       const name = res.data.data?.memberName || 'Member';
       Alert.alert('Added! 🎉', `${name} has been added to your gym.`, [
         { text: 'Add Another', onPress: () => { setEmail(''); setPhone(''); } },

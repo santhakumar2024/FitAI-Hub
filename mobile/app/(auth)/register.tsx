@@ -40,6 +40,7 @@ export default function RegisterScreen() {
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm]   = useState(false);
+  const [passwordFocused, setPasswordFocused]       = useState(false);
   const [passwordTouched, setPasswordTouched]       = useState(false);
   const [confirmTouched,  setConfirmTouched]         = useState(false);
 
@@ -197,11 +198,20 @@ export default function RegisterScreen() {
                 {/* Password */}
                 <View style={{ marginBottom: 8 }}>
                   <Text style={{ fontSize: 11, fontWeight: '800', color: colors.textSecondary, marginBottom: 7, letterSpacing: 1 }}>PASSWORD</Text>
-                  <View style={inputRow}>
-                    <Ionicons name="lock-closed-outline" size={20} color={colors.primary} style={{ marginRight: 12 }} />
+                  <View style={[
+                    inputRow,
+                    passwordFocused && { borderWidth: 1.5, borderColor: colors.primary },
+                  ]}>
+                    <Ionicons
+                      name="lock-closed-outline" size={20}
+                      color={passwordFocused ? colors.primary : colors.textMuted}
+                      style={{ marginRight: 12 }}
+                    />
                     <TextInput
                       value={formData.password}
                       onChangeText={(v) => { setFormData({ ...formData, password: v }); setPasswordTouched(true); }}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
                       placeholder="Create a strong password"
                       placeholderTextColor={colors.textMuted}
                       secureTextEntry={!showPassword}
@@ -213,27 +223,39 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                {/* Strength bar */}
-                {formData.password.length > 0 && (
-                  <View style={{ marginBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', gap: 4, marginBottom: 4 }}>
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <View key={i} style={{
-                          flex: 1, height: 4, borderRadius: 2,
-                          backgroundColor: i <= strengthScore ? strengthColor : colors.border,
-                        }} />
-                      ))}
-                    </View>
-                    <Text style={{ fontSize: 11, color: strengthColor, fontWeight: '700' }}>{strengthLabel}</Text>
-                  </View>
-                )}
-
-                {/* Password rules checklist */}
-                {(passwordTouched || formData.password.length > 0) && (
+                {/* Password hint panel — shows on focus OR when user has started typing */}
+                {(passwordFocused || formData.password.length > 0) && (
                   <View style={{
-                    backgroundColor: colors.bg, borderRadius: 14, padding: 14, marginBottom: 14,
-                    borderWidth: 1, borderColor: colors.border,
+                    backgroundColor: colors.bg,
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 14,
+                    borderWidth: 1,
+                    borderColor: passwordFocused ? `${colors.primary}50` : colors.border,
+                    shadowColor: passwordFocused ? colors.primary : '#000',
+                    shadowOpacity: passwordFocused ? 0.08 : 0.02,
+                    shadowRadius: 8,
+                    elevation: passwordFocused ? 3 : 1,
                   }}>
+                    {/* Strength bar inside panel */}
+                    <View style={{ marginBottom: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 1 }}>STRENGTH</Text>
+                        {formData.password.length > 0 && (
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: strengthColor }}>{strengthLabel}</Text>
+                        )}
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <View key={i} style={{
+                            flex: 1, height: 5, borderRadius: 3,
+                            backgroundColor: i <= strengthScore ? strengthColor : colors.border,
+                          }} />
+                        ))}
+                      </View>
+                    </View>
+
+                    <View style={{ height: 1, backgroundColor: colors.border, marginBottom: 12 }} />
                     <Text style={{ fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 1, marginBottom: 10 }}>
                       PASSWORD REQUIREMENTS
                     </Text>

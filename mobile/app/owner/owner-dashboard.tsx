@@ -1,15 +1,15 @@
 // app/owner/owner-dashboard.tsx
-// Gym Owner P&L Dashboard with AI Suggestions
+// Gym Owner P&L Dashboard — Updated for multi-gym support
 
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
-  RefreshControl, Dimensions,
+  RefreshControl, Dimensions, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
 
@@ -17,20 +17,30 @@ const { width } = Dimensions.get('window');
 
 export default function OwnerDashboardScreen() {
   const { colors } = useTheme();
+  const { gymId } = useLocalSearchParams(); // Path parameter from dashboard
+
   const [data, setData] = useState<any>(null);
   const [suggestions, setSuggestions] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    if (gymId) {
+      fetchData(); 
+    } else {
+      Alert.alert('Error', 'No gym selected');
+      router.back();
+    }
+  }, [gymId]);
 
   const fetchData = async () => {
     try {
-      const res = await api.get('/gym/revenue');
+      const res = await api.get(`/gym/${gymId}/revenue`);
       setData(res.data.data);
     } catch (error) {
       console.error('Failed to fetch revenue:', error);
+      Alert.alert('Error', 'Failed to load revenue data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -40,7 +50,7 @@ export default function OwnerDashboardScreen() {
   const fetchSuggestions = async () => {
     setSuggestLoading(true);
     try {
-      const res = await api.get('/gym/ai-suggestions');
+      const res = await api.get(`/gym/${gymId}/ai-suggestions`);
       setSuggestions(res.data.data?.suggestions || '');
     } catch {
       setSuggestions('Unable to generate suggestions right now. Check your gym data and try again.');

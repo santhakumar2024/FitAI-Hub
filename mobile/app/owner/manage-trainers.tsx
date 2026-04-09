@@ -1,29 +1,39 @@
 // app/owner/manage-trainers.tsx
+// Manage Trainers screen — Updated for multi-gym support
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
 
 export default function ManageTrainersScreen() {
   const { colors } = useTheme();
+  const { gymId } = useLocalSearchParams(); // Path parameter from dashboard
+
   const [trainers, setTrainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [trainerEmail, setTrainerEmail] = useState('');
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    fetchTrainers();
-  }, []);
+    if (gymId) {
+      fetchTrainers();
+    } else {
+      Alert.alert('Error', 'No gym selected');
+      router.back();
+    }
+  }, [gymId]);
 
   const fetchTrainers = async () => {
     try {
-      const res = await api.get('/gym/trainers');
+      const res = await api.get(`/gym/${gymId}/trainers`);
       setTrainers(res.data.data);
     } catch (error) {
        console.error('Failed to fetch trainers:', error);
+       Alert.alert('Error', 'Failed to load trainers for this gym');
     } finally {
       setLoading(false);
     }
@@ -33,7 +43,7 @@ export default function ManageTrainersScreen() {
     if (!trainerEmail.trim()) return;
     setAdding(true);
     try {
-      await api.post('/gym/trainers', { trainerEmail });
+      await api.post(`/gym/${gymId}/trainers`, { trainerEmail });
       Alert.alert('Success', 'Trainer added to gym successfully!');
       setTrainerEmail('');
       fetchTrainers();
@@ -56,7 +66,7 @@ export default function ManageTrainersScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await api.delete(`/gym/trainers/${id}`);
+              await api.delete(`/gym/${gymId}/trainers/${id}`);
               fetchTrainers();
             } catch (error) {
               Alert.alert('Error', 'Failed to remove trainer');

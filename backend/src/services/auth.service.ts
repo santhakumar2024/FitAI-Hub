@@ -28,6 +28,11 @@ export const registerUser = async (input: RegisterInput) => {
   let { name, email, password, phone, role, isFreelance, age, gender, height, weight,
     medicalConditions, goals, activityLevel, preferences } = input;
 
+  // Sanitize phone — treat empty string as no phone provided
+  if (!phone || phone.trim() === '') {
+    phone = undefined;
+  }
+
   // Normalize phone (ensure +91)
   if (phone && /^[6-9]\d{9}$/.test(phone)) {
     phone = `+91${phone}`;
@@ -39,13 +44,14 @@ export const registerUser = async (input: RegisterInput) => {
     throw new AppError('Email already registered', 409);
   }
 
-  // Check phone uniqueness
+  // Check phone uniqueness — only when a real phone number was provided
   if (phone) {
     const existingPhone = await prisma.user.findUnique({ where: { phone } });
     if (existingPhone) {
       throw new AppError('Phone number already in use', 409);
     }
   }
+
 
   // Hash password
   const hashedPassword = await bcrypt.hash(password, config.bcryptRounds);

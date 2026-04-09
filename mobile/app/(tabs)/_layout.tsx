@@ -1,74 +1,45 @@
 // app/(tabs)/_layout.tsx
-// Final Single-Pass Optimized Tab Navigator for FitAI Hub
+// Bottom nav — properly aligned using native tabBarLabel + tabBarIcon
 
 import { Tabs } from 'expo-router';
-import { View, Text, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../../hooks/useTheme';
 import { RootState } from '../../store';
 
-/**
- * TabIcon Component
- * Purpose: Render a consistent, premium tab bar item with active highlighting.
- */
-function TabIcon({ name, label, focused, colors }: { name: any; label: string; focused: boolean; colors: any }) {
-  return (
-    <View style={{ 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      paddingTop: Platform.OS === 'ios' ? 12 : 8,
-      height: '100%',
-      width: '100%'
-    }}>
-      <View style={{
-        backgroundColor: focused ? `${colors.primary}15` : 'transparent',
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 20,
-        marginBottom: 2
-      }}>
-        <Ionicons
-          name={focused ? name : `${name}-outline` as any}
-          size={24}
-          color={focused ? colors.primary : colors.textMuted}
-        />
-      </View>
-      <Text style={{
-        fontSize: 10,
-        fontWeight: '700',
-        color: focused ? colors.primary : colors.textMuted,
-      }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
+// ─── Platform constants ───────────────────────────────────────────────────────
+const TAB_HEIGHT     = Platform.OS === 'ios' ? 88 : 65;
+const BOTTOM_PAD     = Platform.OS === 'ios' ? 26 : 6;
 
+// ─── Layout ───────────────────────────────────────────────────────────────────
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { user } = useSelector((state: RootState) => state.auth);
-
-  // Default to NORMAL_USER if role is missing (ensure robustness)
   const role = user?.role || 'NORMAL_USER';
 
   /**
-   * Helper to determine Tab Visibility and Space allocation.
-   * By setting tabBarButton to null for hidden tabs, we ensure they occupy 0px in the footer.
+   * Builds options for a conditionally-visible tab.
+   * Completely removes the slot (no dead space) for non-allowed roles.
    */
-  const getTabOptions = (name: string, label: string, iconName: any, rolesAllowed: string[]) => {
+  const tabOptions = (
+    iconName: string,
+    label: string,
+    rolesAllowed: string[]
+  ) => {
     const isVisible = rolesAllowed.includes(role);
-    
+    if (!isVisible) {
+      return { tabBarButton: () => null };
+    }
     return {
-      tabBarButton: isVisible ? undefined : () => null, // CRITICAL: This removes the slot entirely
-      tabBarIcon: ({ focused }: { focused: boolean }) => (
-        <TabIcon 
-          name={iconName} 
-          label={label} 
-          focused={focused} 
-          colors={colors} 
+      tabBarIcon: ({ focused, color }: { focused: boolean; color: string }) => (
+        <Ionicons
+          name={(focused ? iconName : `${iconName}-outline`) as any}
+          size={23}
+          color={color}
         />
-      )
+      ),
+      tabBarLabel: label,
     };
   };
 
@@ -76,87 +47,137 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+
+        // ── Tab bar container ────────────────────────────────────────────────
         tabBarStyle: {
           backgroundColor: colors.bgSurface,
-          borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 95 : 80,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 15,
-          paddingTop: 8,
-          elevation: 20,
+          borderTopColor: colors.border,
+          height: TAB_HEIGHT,
+          paddingBottom: BOTTOM_PAD,
+          paddingTop: Platform.OS === 'android' ? 4 : 8,
+          elevation: 16,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -6 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
         },
-        tabBarShowLabel: false,
+
+        // ── Let each tab item fill its slot evenly ───────────────────────────
+        tabBarItemStyle: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 0,
+          marginVertical: 0,
+        },
+
+        // ── Icon sizing & centering ──────────────────────────────────────────
+        tabBarIconStyle: {
+          marginBottom: -2,   // tighten gap between icon and label
+        },
+
+        // ── Label styles ─────────────────────────────────────────────────────
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+          marginTop: 0,
+          paddingTop: 0,
+        },
+
+        // ── Tint colours ─────────────────────────────────────────────────────
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
+
+        // ── Active-tab pill background ────────────────────────────────────────
+        tabBarActiveBackgroundColor: 'transparent',
       }}
     >
-      {/* 1. HOME / DASHBOARD - Shared index */}
+      {/* 1. HOME / DASHBOARD */}
       <Tabs.Screen
         name="index"
-        options={{ 
-          tabBarIcon: ({ focused }) => (
-            <TabIcon 
-              name={role === 'NORMAL_USER' ? 'home' : 'grid'} 
-              label={role === 'NORMAL_USER' ? 'Home' : 'Dashboard'} 
-              focused={focused} 
-              colors={colors} 
+        options={{
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={
+                focused
+                  ? role === 'NORMAL_USER' ? 'home' : 'grid'
+                  : role === 'NORMAL_USER' ? 'home-outline' : 'grid-outline'
+              }
+              size={23}
+              color={color}
             />
-          ) 
+          ),
+          tabBarLabel: role === 'NORMAL_USER' ? 'Home' : 'Dashboard',
         }}
       />
 
-      {/* 2. PLAN - Shared route name, different labels */}
+      {/* 2. PLAN — Normal User & Trainer */}
       <Tabs.Screen
         name="plan"
-        options={getTabOptions(
-          'plan', 
-          role === 'TRAINER' ? 'Library' : 'AI Plan', 
-          role === 'TRAINER' ? 'book' : 'flash', 
-          ['NORMAL_USER', 'TRAINER']
-        )}
+        options={
+          ['NORMAL_USER', 'TRAINER'].includes(role)
+            ? {
+                tabBarIcon: ({ focused, color }) => (
+                  <Ionicons
+                    name={
+                      focused
+                        ? (role === 'TRAINER' ? 'book' : 'flash')
+                        : (role === 'TRAINER' ? 'book-outline' : 'flash-outline')
+                    }
+                    size={23}
+                    color={color}
+                  />
+                ),
+                tabBarLabel: role === 'TRAINER' ? 'Library' : 'AI Plan',
+              }
+            : { tabBarButton: () => null }
+        }
       />
 
-      {/* 3. CALENDAR - Normal User only */}
+      {/* 3. CALENDAR — Normal User only */}
       <Tabs.Screen
         name="calendar"
-        options={getTabOptions('calendar', 'History', 'calendar', ['NORMAL_USER'])}
+        options={tabOptions('calendar', 'History', ['NORMAL_USER'])}
       />
 
-      {/* 4. LOGS - Normal User only */}
+      {/* 4. LOGS — Normal User only */}
       <Tabs.Screen
         name="logs"
-        options={getTabOptions('logs', 'Log', 'add-circle', ['NORMAL_USER'])}
+        options={tabOptions('add-circle', 'Log', ['NORMAL_USER'])}
       />
 
-      {/* 5. PROGRESS - Normal User only */}
+      {/* 5. PROGRESS — Normal User only */}
       <Tabs.Screen
         name="progress"
-        options={getTabOptions('progress', 'Stats', 'stats-chart', ['NORMAL_USER'])}
+        options={tabOptions('stats-chart', 'Stats', ['NORMAL_USER'])}
       />
 
-      {/* 6. CLIENTS - Trainer only */}
+      {/* 6. CLIENTS — Trainer only */}
       <Tabs.Screen
         name="clients"
-        options={getTabOptions('clients', 'Clients', 'people', ['TRAINER'])}
+        options={tabOptions('people', 'Clients', ['TRAINER'])}
       />
 
-      {/* 7. GYM - Owner only */}
+      {/* 7. GYM — Owner only */}
       <Tabs.Screen
         name="gym"
-        options={getTabOptions('gym', 'My Gym', 'business', ['GYM_OWNER'])}
+        options={tabOptions('business', 'My Gym', ['GYM_OWNER'])}
       />
 
-      {/* 8. PROFILE - Always last */}
+      {/* 8. PROFILE — Always visible */}
       <Tabs.Screen
         name="profile"
-        options={{ 
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name="person" label="Profile" focused={focused} colors={colors} />
-          ) 
+        options={{
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={23}
+              color={color}
+            />
+          ),
+          tabBarLabel: 'Profile',
         }}
       />
     </Tabs>

@@ -16,14 +16,11 @@ export const createGym = async (req: Request, res: Response, next: NextFunction)
   try {
     const ownerId = req.user!.userId;
 
-    const existingGym = await prisma.gym.findUnique({ where: { ownerId } });
-    if (existingGym) {
-      conflict(res, 'You already have a gym registered. Update the existing one.');
-      return;
-    }
+    // Extract only the fields Prisma accepts — never pass relational or computed fields
+    const { name, address, city, state, pincode, phone, email, logoUrl, description } = req.body;
 
     const gym = await prisma.gym.create({
-      data: { ...req.body, ownerId },
+      data: { name, address, city, state, pincode, phone, email, logoUrl, description, ownerId },
     });
 
     created(res, 'Gym created successfully', gym);
@@ -35,12 +32,23 @@ export const createGym = async (req: Request, res: Response, next: NextFunction)
 // ─────────────────────────────────────────
 // GET /gym
 // ─────────────────────────────────────────
-export const getMyGym = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getMyGyms = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const gyms = await prisma.gym.findMany({ where: { ownerId } });
+    ok(res, 'Gyms retrieved', gyms);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    const gym = await prisma.gym.findUnique({
-      where: { ownerId },
+export const getGymDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const ownerId = req.user!.userId;
+    const { gymId } = req.params;
+
+    const gym = await prisma.gym.findFirst({
+      where: { id: gymId, ownerId },
       include: {
         trainers: { select: { id: true, name: true, email: true, phone: true, photoUrl: true } },
         clientAssignments: {
@@ -51,7 +59,7 @@ export const getMyGym = async (req: Request, res: Response, next: NextFunction):
     });
 
     if (!gym) {
-      notFound(res, 'No gym found. Create your gym first.');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -67,16 +75,30 @@ export const getMyGym = async (req: Request, res: Response, next: NextFunction):
 export const updateGym = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
       notFound(res, 'Gym not found');
       return;
     }
 
+    const { name, address, city, state, pincode, phone, email, logoUrl, description, isActive } = req.body;
+
     const updated = await prisma.gym.update({
-      where: { ownerId },
-      data: req.body,
+      where: { id: gymId },
+      data: {
+        ...(name        !== undefined && { name }),
+        ...(address     !== undefined && { address }),
+        ...(city        !== undefined && { city }),
+        ...(state       !== undefined && { state }),
+        ...(pincode     !== undefined && { pincode }),
+        ...(phone       !== undefined && { phone }),
+        ...(email       !== undefined && { email }),
+        ...(logoUrl     !== undefined && { logoUrl }),
+        ...(description !== undefined && { description }),
+        ...(isActive    !== undefined && { isActive }),
+      },
     });
 
     ok(res, 'Gym updated successfully', updated);
@@ -91,11 +113,12 @@ export const updateGym = async (req: Request, res: Response, next: NextFunction)
 export const addTrainerToGym = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
     const { trainerEmail } = req.body;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'Create your gym first');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -140,10 +163,11 @@ export const addTrainerToGym = async (req: Request, res: Response, next: NextFun
 export const getGymTrainers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'No gym found');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -173,11 +197,11 @@ export const getGymTrainers = async (req: Request, res: Response, next: NextFunc
 export const removeTrainerFromGym = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
-    const { trainerId } = req.params;
+    const { gymId, trainerId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'No gym found');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -207,10 +231,11 @@ export const removeTrainerFromGym = async (req: Request, res: Response, next: Ne
 export const getGymMembers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'No gym found');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -234,11 +259,12 @@ export const getGymMembers = async (req: Request, res: Response, next: NextFunct
 export const assignClientToTrainer = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
     const { clientId, trainerId } = req.body;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'No gym found');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -278,11 +304,11 @@ export const assignClientToTrainer = async (req: Request, res: Response, next: N
 export const unassignClient = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
-    const { clientId } = req.params;
+    const { gymId, clientId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'No gym found');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -303,10 +329,11 @@ export const unassignClient = async (req: Request, res: Response, next: NextFunc
 export const getGymStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
     if (!gym) {
-      notFound(res, 'No gym found');
+      notFound(res, 'Gym not found');
       return;
     }
 
@@ -338,6 +365,7 @@ export const getGymStats = async (req: Request, res: Response, next: NextFunctio
 export const addGymMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
     const { memberEmail, memberPhone } = req.body;
 
     if (!memberEmail && !memberPhone) {
@@ -345,8 +373,8 @@ export const addGymMember = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
-    if (!gym) { notFound(res, 'No gym found. Create your gym first.'); return; }
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
+    if (!gym) { notFound(res, 'Gym not found'); return; }
 
     const member = await prisma.user.findFirst({
       where: {
@@ -390,9 +418,10 @@ export const addGymMember = async (req: Request, res: Response, next: NextFuncti
 export const getGymRevenue = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
-    if (!gym) { notFound(res, 'No gym found'); return; }
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
+    if (!gym) { notFound(res, 'Gym not found'); return; }
 
     // Get member count trends across last 6 months
     const now = new Date();
@@ -448,9 +477,10 @@ export const getGymRevenue = async (req: Request, res: Response, next: NextFunct
 export const getGymAISuggestions = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const ownerId = req.user!.userId;
+    const { gymId } = req.params;
 
-    const gym = await prisma.gym.findUnique({ where: { ownerId } });
-    if (!gym) { notFound(res, 'No gym found'); return; }
+    const gym = await prisma.gym.findFirst({ where: { id: gymId, ownerId } });
+    if (!gym) { notFound(res, 'Gym not found'); return; }
 
     const [memberCount, trainerCount] = await Promise.all([
       prisma.clientTrainer.count({ where: { gymId: gym.id, isActive: true } }),

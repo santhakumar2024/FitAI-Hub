@@ -1,14 +1,21 @@
 // app/owner/gym-setup.tsx
+// Gym Profile Setup & Edit — Updated for multi-gym support
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
+import { useDispatch } from 'react-redux';
+import { setSelectedGymId } from '../../store/slices/gymSlice';
 
 export default function GymSetupScreen() {
   const { colors } = useTheme();
+  const dispatch = useDispatch();
+  const { gymId } = useLocalSearchParams(); // If editing
+
   const [gym, setGym] = useState({
     name: '',
     address: '',
@@ -16,19 +23,22 @@ export default function GymSetupScreen() {
     phone: '',
     description: ''
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!gymId);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchGym();
-  }, []);
+    if (gymId) {
+      fetchGym();
+    }
+  }, [gymId]);
 
   const fetchGym = async () => {
     try {
-      const res = await api.get('/gym');
+      const res = await api.get(`/gym/${gymId}`);
       setGym(res.data.data);
     } catch (error) {
-       console.log('No gym found, starting fresh');
+       console.error('Fetch gym details error:', error);
+       Alert.alert('Error', 'Failed to load gym details');
     } finally {
       setLoading(false);
     }
@@ -41,12 +51,17 @@ export default function GymSetupScreen() {
     }
     setSaving(true);
     try {
-      if ((gym as any).id) {
-        await api.patch('/gym', gym);
+      if (gymId) {
+        // Update
+        await api.patch(`/gym/${gymId}`, gym);
+        Alert.alert('Success', 'Gym profile updated!');
       } else {
-        await api.post('/gym', gym);
+        // Create
+        const res = await api.post('/gym', gym);
+        const newGym = res.data.data;
+        dispatch(setSelectedGymId(newGym.id));
+        Alert.alert('Success', 'Gym created successfully!');
       }
-      Alert.alert('Success', 'Gym profile updated!');
       router.back();
     } catch (error) {
       Alert.alert('Error', 'Failed to save gym details');
@@ -65,10 +80,12 @@ export default function GymSetupScreen() {
             <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 15 }}>
               <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
-            <Text style={{ fontSize: 24, fontWeight: '900', color: colors.textPrimary }}>Gym Profile</Text>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: colors.textPrimary }}>
+              {gymId ? 'Edit Gym' : 'Add New Gym'}
+            </Text>
           </View>
           <TouchableOpacity onPress={handleSave} disabled={saving}>
-            {saving ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ color: colors.primary, fontWeight: '900' }}>SAVE</Text>}
+            {saving ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={{ color: colors.primary, fontWeight: '900' }}>{gymId ? 'UPDATE' : 'CREATE'}</Text>}
           </TouchableOpacity>
         </View>
 

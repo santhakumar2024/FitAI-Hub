@@ -3,19 +3,19 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const getBaseUrl = () => {
-  // CRITICAL: On Android, 10.0.2.2 is the standard bridge, 
-  // but your actual machine IP is 10.16.211.223.
-  if (Platform.OS === 'android') {
-    const androidUrl = 'http://10.16.211.186:5000/api/v1';
-    console.log(`🤖 Android Detected: Using LAN IP ${androidUrl}`);
-    return androidUrl;
-  }
-
+  // ✅ Always read from .env first — update EXPO_PUBLIC_API_BASE_URL when your IP changes.
+  //    Run `ipconfig` on Windows to get your current LAN IP.
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const localUrl = 'http://localhost:5000/api/v1';
-  
-  console.log(`📱 Base URL Check: Env=${envUrl || 'none'}, Default=${localUrl}`);
-  return envUrl || localUrl;
+
+  // Fallback: localhost works for iOS Simulator and Web only.
+  // For Android device/emulator you MUST set EXPO_PUBLIC_API_BASE_URL in .env
+  const fallback = Platform.OS === 'android'
+    ? 'http://10.16.211.203:5000/api/v1'  // last known IP — update .env instead
+    : 'http://localhost:5000/api/v1';
+
+  const url = envUrl || fallback;
+  console.log(`🔗 [${Platform.OS.toUpperCase()}] API base: ${url} (env=${envUrl ? '✅' : '❌ using fallback'})`);
+  return url;
 };
 
 const BASE_URL = getBaseUrl();

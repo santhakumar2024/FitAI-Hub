@@ -16,6 +16,7 @@ import { fetchProfile } from '../../store/slices/userSlice';
 import { fetchTodayPlan } from '../../store/slices/planSlice';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
+import { setSelectedGymId } from '../../store/slices/gymSlice';
  
 const { width } = Dimensions.get('window');
  
@@ -52,10 +53,12 @@ export default function HomeScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
   const { profile } = useSelector((state: RootState) => state.user);
   const { currentPlan } = useSelector((state: RootState) => state.plan);
+  const { selectedGymId } = useSelector((state: RootState) => state.gym);
   const { colors } = useTheme();
   
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [ownerGyms, setOwnerGyms] = useState<any[]>([]);
   const [ownerStats, setOwnerStats] = useState<any>(null);
   const [trainerClients, setTrainerClients] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -64,7 +67,7 @@ export default function HomeScreen() {
  
   useEffect(() => {
     loadData();
-  }, [role]);
+  }, [role, selectedGymId]);
  
   const loadData = async () => {
     try {
@@ -79,8 +82,20 @@ export default function HomeScreen() {
         setNotifications(notifRes.data.data?.notifications || []);
         setStats(summaryRes.data.data);
       } else if (role === 'GYM_OWNER') {
-        const res = await api.get('/gym/stats');
-        setOwnerStats(res.data.data);
+        const gymsRes = await api.get('/gym');
+        const gyms = gymsRes.data.data;
+        setOwnerGyms(gyms || []);
+        
+        if (gyms && gyms.length > 0) {
+          const gymId = selectedGymId && gyms.find((g: any) => g.id === selectedGymId) 
+            ? selectedGymId 
+            : gyms[0].id;
+          
+          if (!selectedGymId) dispatch(setSelectedGymId(gymId));
+
+          const statsRes = await api.get(`/gym/${gymId}/stats`);
+          setOwnerStats(statsRes.data.data);
+        }
       } else if (role === 'TRAINER') {
         const res = await api.get('/clients');
         setTrainerClients(res.data.data || []);
@@ -230,6 +245,41 @@ export default function HomeScreen() {
  
   const renderOwnerDashboard = () => (
     <View style={{ paddingHorizontal: 24, marginTop: 32 }}>
+      {/* Gym Selector Horizontal List */}
+      {ownerGyms.length > 0 && (
+        <View style={{ marginBottom: 24 }}>
+          <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.5, marginBottom: 12 }}>MY GYM LOCATIONS</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24, paddingHorizontal: 24 }}>
+            {ownerGyms.map((gym: any) => {
+              const isActive = gym.id === selectedGymId;
+              return (
+                <TouchableOpacity
+                  key={gym.id}
+                  onPress={() => dispatch(setSelectedGymId(gym.id))}
+                  style={{
+                    backgroundColor: isActive ? colors.primary : colors.bgSurface,
+                    paddingHorizontal: 20, paddingVertical: 14, borderRadius: 20,
+                    marginRight: 12, borderWidth: 1, borderColor: isActive ? colors.primary : colors.border,
+                    flexDirection: 'row', alignItems: 'center', gap: 10
+                  }}
+                >
+                  <Ionicons name="business" size={18} color={isActive ? 'white' : colors.primary} />
+                  <Text style={{ color: isActive ? 'white' : colors.textPrimary, fontWeight: '800' }}>{gym.name}</Text>
+                  {isActive && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' }} />}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              onPress={() => router.push('/owner/gym-setup')}
+              style={{ paddingHorizontal: 20, paddingVertical: 14, borderRadius: 20, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed', flexDirection: 'row', alignItems: 'center', gap: 8 }}
+            >
+              <Ionicons name="add" size={20} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: '800' }}>ADD NEW</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
         <StatCard title="Members" value={ownerStats?.memberCount || 0} icon="people" color="#2ECC71" />
         <StatCard title="Trainers" value={ownerStats?.trainerCount || 0} icon="fitness" color="#3498DB" />
@@ -237,7 +287,7 @@ export default function HomeScreen() {
 
       {/* P&L Dashboard */}
       <TouchableOpacity 
-        onPress={() => router.push('/owner/owner-dashboard' as any)}
+        onPress={() => router.push({ pathname: '/owner/owner-dashboard', params: { gymId: selectedGymId || ownerGyms[0]?.id } } as any)}
         style={{ 
           backgroundColor: colors.primary, 
           padding: 22, 
@@ -256,7 +306,7 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity 
-        onPress={() => router.push('/gym' as any)}
+        onPress={() => router.push('/gym')}
         style={{ 
           backgroundColor: colors.bgSurface,
           padding: 22, 

@@ -6,6 +6,7 @@ import authReducer from './slices/authSlice';
 import userReducer from './slices/userSlice';
 import planReducer from './slices/planSlice';
 import logReducer from './slices/logSlice';
+import gymReducer from './slices/gymSlice';
 
 export const store = configureStore({
   reducer: {
@@ -13,6 +14,7 @@ export const store = configureStore({
     user: userReducer,
     plan: planReducer,
     log: logReducer,
+    gym: gymReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({ serializableCheck: false }),
