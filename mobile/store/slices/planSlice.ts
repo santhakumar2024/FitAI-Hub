@@ -36,6 +36,15 @@ export const fetchTodayPlan = createAsyncThunk('plan/fetchToday', async (_, { re
   }
 });
 
+export const fetchPlanByDate = createAsyncThunk('plan/fetchByDate', async (date: string, { rejectWithValue }) => {
+  try {
+    const res = await api.get(`/plan/date?date=${date}`);
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(err.response?.data?.message ?? 'No plan for this date');
+  }
+});
+
 export const generatePlanThunk = createAsyncThunk(
   'plan/generate',
   async (data: Record<string, unknown>, { rejectWithValue }) => {

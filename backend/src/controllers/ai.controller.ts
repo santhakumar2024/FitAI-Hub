@@ -112,6 +112,60 @@ export const getTodayPlan = async (req: Request, res: Response, next: NextFuncti
 };
 
 // ─────────────────────────────────────────
+// GET /api/v1/plan/date?date=YYYY-MM-DD
+// ─────────────────────────────────────────
+export const getPlanByDate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const dateStr = (req.query.date as string) || new Date().toISOString().split('T')[0];
+    const targetDate = new Date(dateStr);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const plan = await prisma.aIPlan.findFirst({
+      where: { userId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!plan) {
+      notFound(res, 'No active plan found');
+      return;
+    }
+
+    const startDate = new Date(plan.generatedAt);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Calculate day number (1-indexed)
+    const diffTime = targetDate.getTime() - startDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    // Cycle the plan if it exceeds duration (e.g., day 8 of a 7-day plan loops to day 1)
+    const dayNumber = (diffDays % plan.durationDays) + 1;
+
+    if (dayNumber < 1) {
+      notFound(res, 'Requested date is before the plan start date');
+      return;
+    }
+
+    const dayKey = `day${dayNumber}`;
+    const dailyPlan = (plan.generatedPlan as any)?.dailyPlan?.[dayKey];
+
+    if (!dailyPlan) {
+      notFound(res, 'No plan found for this date');
+      return;
+    }
+
+    ok(res, `Plan for ${dateStr} (Day ${dayNumber}) retrieved`, {
+      planId: plan.id,
+      date: dateStr,
+      dayNumber,
+      recommendation: dailyPlan,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─────────────────────────────────────────
 // GET /plan/history
 // ─────────────────────────────────────────
 export const getPlanHistory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

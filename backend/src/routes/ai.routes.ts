@@ -32,6 +32,7 @@ router.post('/ai/estimate-food', aiController.estimateFoodNutrition);
 
 // Plan CRUD
 router.get('/plan/today', aiController.getTodayPlan);
+router.get('/plan/date', aiController.getPlanByDate);
 router.get('/plan/history', aiController.getPlanHistory);
 router.get('/plan/:planId', aiController.getPlanById);
 

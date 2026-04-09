@@ -50,15 +50,16 @@ Rules:
 // USER PROMPT BUILDER
 // ─────────────────────────────────────────
 
-const buildUserPrompt = (input: GeneratePlanInput): string => {
-  const { age, gender, height, weight, medicalConditions, goals, activityLevel, preferences, durationDays } = input;
-  const heightM = height / 100;
-  const bmi = parseFloat((weight / (heightM * heightM)).toFixed(2));
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  const dayOfWeek = today.toLocaleString('en-US', { weekday: 'long' });
 
   return `Architect a ${durationDays}-day fitness journey:
 - User: ${age}y ${gender}, ${height}cm/${weight}kg (BMI: ${bmi})
 - Context: ${activityLevel}, Conditions: ${medicalConditions.join(', ') || 'None'}
 - Goals: ${goals.join(', ')}, Preferences: ${preferences.join(', ') || 'None'}
+- Timeline: Plan starts exactly on ${dateStr} (${dayOfWeek}). 
+- Instruction: Optimize Day 1 in the JSON response for the start date and day of the week.
 
 RESPONSE SCHEMA (STRICT):
 {

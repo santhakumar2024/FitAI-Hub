@@ -21,6 +21,7 @@ export default function CalendarScreen() {
 
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dayData, setDayData] = useState<any>(null);
+  const [aiRecommendation, setAiRecommendation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [markedDates, setMarkedDates] = useState<any>({});
 
@@ -65,11 +66,21 @@ export default function CalendarScreen() {
 
   const fetchDayData = async (date: string) => {
     setLoading(true);
+    setAiRecommendation(null);
     try {
-      const res = await api.get(`/logs/daily?date=${date}`);
-      setDayData(res.data.data);
+      const [logRes, aiRes] = await Promise.allSettled([
+        api.get(`/logs/daily?date=${date}`),
+        api.get(`/plan/date?date=${date}`)
+      ]);
+      
+      if (logRes.status === 'fulfilled') setDayData(logRes.value.data.data);
+      else setDayData(null);
+
+      if (aiRes.status === 'fulfilled') setAiRecommendation(aiRes.value.data.data.recommendation);
+      else setAiRecommendation(null);
     } catch {
       setDayData(null);
+      setAiRecommendation(null);
     } finally {
       setLoading(false);
     }
@@ -202,23 +213,52 @@ export default function CalendarScreen() {
             </View>
           ) : (
             <View>
-              <Text style={{ fontSize: 18, fontWeight: '800', color: colors.textPrimary, marginBottom: 15 }}>
-                {isTrainer && selectedClient
-                  ? `${selectedClient.name}'s Progress`
                   : 'Your Progress'} — {format(new Date(selectedDate + 'T12:00:00'), 'MMMM do')}
               </Text>
 
               {loading ? (
                 <ActivityIndicator color={colors.primary} size="large" />
-              ) : dayData ? (
+              ) : (
                 <View style={{ gap: 15 }}>
+                  {/* AI Recommendation Card (NEW) */}
+                  {aiRecommendation && (
+                    <View style={{ backgroundColor: colors.bgSurface, padding: 20, borderRadius: 20, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${colors.primary}15`, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                          <Ionicons name="sparkles" size={18} color={colors.primary} />
+                        </View>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>AI Mastery Targets</Text>
+                      </View>
+                      
+                      {/* Workout Target */}
+                      {aiRecommendation.workout && (
+                         <View style={{ marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                           <Text style={{ fontSize: 12, fontWeight: '800', color: colors.primary, marginBottom: 4 }}>WORKOUT GOAL</Text>
+                           <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>
+                             {aiRecommendation.workout[0]?.name} ({aiRecommendation.workout[0]?.sets}x{aiRecommendation.workout[0]?.reps})
+                           </Text>
+                           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{aiRecommendation.workout[0]?.tip}</Text>
+                         </View>
+                      )}
+
+                      {/* Diet Target */}
+                      {aiRecommendation.diet && (
+                         <View>
+                           <Text style={{ fontSize: 12, fontWeight: '800', color: colors.action, marginBottom: 4 }}>DIET TARGET</Text>
+                           <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{aiRecommendation.diet.m1_bk?.name}</Text>
+                           <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Target: {aiRecommendation.diet.total?.cal} kcal • {aiRecommendation.diet.total?.prot}g Protein</Text>
+                         </View>
+                      )}
+                    </View>
+                  )}
+
                   {/* Diet Card */}
                   <View style={{ backgroundColor: colors.bgSurface, padding: 20, borderRadius: 20, borderWidth: 1, borderColor: colors.border }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                       <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${colors.action}15`, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                         <Ionicons name="restaurant" size={18} color={colors.action} />
                       </View>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Diet Adherence</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Logged Diet</Text>
                     </View>
                     <View style={{ gap: 6 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -238,7 +278,7 @@ export default function CalendarScreen() {
                       <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${colors.primary}15`, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                         <Ionicons name="barbell" size={18} color={colors.primary} />
                       </View>
-                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Workouts</Text>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Logged Sessions</Text>
                       <View style={{ marginLeft: 'auto', backgroundColor: `${colors.primary}15`, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
                         <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>{dayData.workoutLogs?.length || 0} exercises</Text>
                       </View>
@@ -263,7 +303,7 @@ export default function CalendarScreen() {
                         <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#9B59B615', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                           <Ionicons name="speedometer" size={18} color="#9B59B6" />
                         </View>
-                        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Body Metrics</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '800', color: colors.textPrimary }}>Logged Metrics</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 12 }}>
                         <View style={{ flex: 1, backgroundColor: colors.bg, padding: 12, borderRadius: 12, alignItems: 'center' }}>
@@ -283,6 +323,11 @@ export default function CalendarScreen() {
                   {/* Notes */}
                   {dayData.notes && (
                     <View style={{ backgroundColor: `${colors.primary}08`, padding: 16, borderRadius: 16, borderLeftWidth: 3, borderLeftColor: colors.primary }}>
+                      <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>"{dayData.notes}"</Text>
+                    </View>
+                  )}
+                </View>
+ary }}>
                       <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>"{dayData.notes}"</Text>
                     </View>
                   )}

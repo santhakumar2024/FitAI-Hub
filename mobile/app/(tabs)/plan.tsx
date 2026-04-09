@@ -49,7 +49,25 @@ export default function AIPlanScreen() {
 
   useEffect(() => {
     if (!currentPlan && !isGenerating) setShowForm(true);
-    else setShowForm(false);
+    else {
+      setShowForm(false);
+      // Auto-calculate the current day of the plan
+      if (currentPlan?.generatedAt) {
+        const start = new Date(currentPlan.generatedAt);
+        start.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const diffTime = today.getTime() - start.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        // Cycle if duration is exceeded
+        const dayNumber = (diffDays % (currentPlan.durationDays || 7)) + 1;
+        if (dayNumber >= 1) {
+          setSelectedDay(`day${dayNumber}`);
+        }
+      }
+    }
   }, [currentPlan, isGenerating]);
 
   const onRefresh = React.useCallback(async () => {
