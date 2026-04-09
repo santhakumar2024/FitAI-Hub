@@ -1,0 +1,36 @@
+﻿node.exe : npm error code 
+ETARGET
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:
+\Users\santhakumar.J.S\App
+Dat ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (n  
+  pm error code ETARGET   
+ :String) [], RemoteEx    
+ception
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+npm error notarget No 
+matching version found 
+for react-native-razorpay@
+^2.3.2.
+npm error notarget In 
+most cases you or one of 
+your dependencies are 
+requesting
+npm error notarget a 
+package version that 
+doesn't exist.
+npm error A complete log 
+of this run can be found 
+in: C:\Users\santhakumar.J
+.S\AppData\Local\npm-cache
+\_logs\2026-04-02T16_29_53
+_903Z-debug-0.log

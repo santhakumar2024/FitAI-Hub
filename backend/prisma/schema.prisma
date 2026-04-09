@@ -1,0 +1,488 @@
+// prisma/schema.prisma
+// FitAI Hub — Full Database Schema
+// PostgreSQL via Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  NORMAL_USER
+  GYM_OWNER
+  TRAINER
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  expired
+  cancelled
+  past_due
+}
+
+enum PlanType {
+  FREE_TRIAL
+  NORMAL_100
+  FREELANCER_200
+  OWNER_500
+}
+
+enum ActivityLevel {
+  sedentary
+  lightly_active
+  moderately_active
+  very_active
+  extra_active
+}
+
+enum LogType {
+  diet
+  workout
+  yoga
+  weight
+  all
+}
+
+enum NotificationType {
+  plan_generated
+  plan_overridden
+  subscription_expiry
+  streak_milestone
+  trainer_note
+  welcome
+}
+
+// ─────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────
+
+model User {
+  id                String        @id @default(cuid())
+  name              String
+  email             String        @unique
+  password          String
+  phone             String?       @unique
+  role              Role          @default(NORMAL_USER)
+  isFreelance       Boolean       @default(false)
+  gender            Gender?
+  age               Int?
+  height            Float? // cm
+  weight            Float? // kg
+  bmi               Float?
+  photoUrl          String?
+  medicalConditions Json          @default("[]") // string[]
+  goals             Json          @default("[]") // string[]
+  activityLevel     ActivityLevel @default(moderately_active)
+  preferences       Json          @default("[]") // e.g. ["vegetarian"]
+
+  // New Onboarding & Profile Fields
+  work              String?
+  mobileNumber      String?
+  goalType          String?       // "weight_loss", "muscle_gain", etc
+  targetWeight      Float?
+  timeline          String?
+  motivationLevel   Int?          // 1-10
+  experienceLevel   String?       // "beginner", "intermediate", "advanced", "pro"
+  recentActivity    Int?          // Exercises in last 30 days
+  pushupTest        Int?
+  squatTest         Int?
+  workoutLocation   String?       // "home", "gym", "outdoors"
+  equipmentAccess   Json          @default("[]") // string[]
+  daysPerWeek       Int?
+  timePerSession    Int?          // minutes
+  jobNature         String?       // "sedentary", "active"
+  dislikedExercises Json          @default("[]") // string[]
+  trainingStyle     String?       // "hiit", "lifting", "yoga", "calisthenics"
+  
+  // PAR-Q+ Medical Screening
+  medicalScreening  Json          @default("{}") // Structured PAR-Q questions
+
+  themePreference   String        @default("light") // "light" or "midnight"
+
+  isEmailVerified   Boolean       @default(false)
+  isActive          Boolean       @default(true)
+  fcmToken          String? // Firebase Cloud Messaging token
+  lastLoginAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations — Gym Owner
+  ownedGym Gym? @relation("GymOwner")
+
+  // Relations — Trainer
+  gymId           String?
+  gym             Gym?            @relation("GymTrainers", fields: [gymId], references: [id])
+  trainerClients  ClientTrainer[] @relation("TrainerRelation")
+  overriddenPlans AIPlan[]        @relation("PlanEditor")
+  trainerNotes    TrainerNote[]   @relation("TrainerNoteAuthor")
+
+  // Relations — Normal User
+  clientRelations ClientTrainer[] @relation("ClientRelation")
+  receivedNotes   TrainerNote[]   @relation("TrainerNoteClient")
+
+  // Shared relations
+  subscription        Subscription?
+  aiPlans             AIPlan[]
+  progressLogs        ProgressLog[]
+  passwordResetTokens PasswordResetToken[]
+  refreshTokens       RefreshToken[]
+  notifications       Notification[]
+  otpCodes            OTPCode[]
+  aiGenerationLogs    AIGenerationLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([gymId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+// GYM
+// ─────────────────────────────────────────
+
+model Gym {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  city        String?
+  state       String?
+  pincode     String?
+  phone       String?
+  email       String?
+  logoUrl     String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  ownerId           String          @unique
+  owner             User            @relation("GymOwner", fields: [ownerId], references: [id])
+  trainers          User[]          @relation("GymTrainers")
+  clientAssignments ClientTrainer[]
+
+  @@index([ownerId])
+  @@map("gyms")
+}
+
+// ─────────────────────────────────────────
+// CLIENT-TRAINER JUNCTION
+// ─────────────────────────────────────────
+
+model ClientTrainer {
+  id         String   @id @default(cuid())
+  clientId   String
+  trainerId  String
+  gymId      String?
+  assignedAt DateTime @default(now())
+  isActive   Boolean  @default(true)
+
+  client  User @relation("ClientRelation", fields: [clientId], references: [id])
+  trainer User @relation("TrainerRelation", fields: [trainerId], references: [id])
+  gym     Gym? @relation(fields: [gymId], references: [id])
+
+  @@unique([clientId, trainerId])
+  @@index([clientId])
+  @@index([trainerId])
+  @@index([gymId])
+  @@map("client_trainers")
+}
+
+// ─────────────────────────────────────────
+// SUBSCRIPTION
+// ─────────────────────────────────────────
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  userId                 String             @unique
+  planType               PlanType           @default(FREE_TRIAL)
+  status                 SubscriptionStatus @default(trial)
+  trialEndsAt            DateTime?
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  razorpayOrderId        String?
+  razorpayPaymentId      String?
+  razorpaySubscriptionId String?
+  amount                 Int? // in paisa (INR * 100)
+  currency               String             @default("INR")
+  cancelledAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────
+// AI PLAN
+// ─────────────────────────────────────────
+
+model AIPlan {
+  id               String    @id @default(cuid())
+  userId           String
+  version          Int       @default(1)
+  durationDays     Int       @default(7)
+  generatedPlan    Json // Full AI-generated plan object
+  isManuallyEdited Boolean   @default(false)
+  editedById       String?
+  editedAt         DateTime?
+  editReason       String?
+  isActive         Boolean   @default(true)
+  generatedAt      DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Context used to generate plan
+  age               Int?
+  gender            String?
+  height            Float?
+  weight            Float?
+  bmi               Float?
+  activityLevel     String?
+  medicalConditions Json    @default("[]")
+  goals             Json    @default("[]")
+  preferences       Json    @default("[]")
+  estimatedCalories Int?
+  generalNotes      String?
+
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  editedBy User? @relation("PlanEditor", fields: [editedById], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([userId, isActive])
+  @@map("ai_plans")
+}
+
+// ─────────────────────────────────────────
+// PROGRESS LOG (Aggregated daily log)
+// ─────────────────────────────────────────
+
+model ProgressLog {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @db.Date
+  weight      Float? // kg
+  bmi         Float?
+  photoUrl    String?
+  notes       String?
+  streak      Int      @default(0)
+  mood        String?
+  energyLevel Int? // 1-10
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dietLog     DietLog?
+  workoutLogs WorkoutLog[]
+  yogaLogs    YogaLog[]
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+  @@map("progress_logs")
+}
+
+// ─────────────────────────────────────────
+// DIET LOG
+// ─────────────────────────────────────────
+
+model DietLog {
+  id            String   @id @default(cuid())
+  progressLogId String   @unique
+  breakfast     Json     @default("[]") // [{name, grams, cal, pro}]
+  lunch         Json     @default("[]") // [{name, grams, cal, pro}]
+  dinner        Json     @default("[]") // [{name, grams, cal, pro}]
+  snacks        Json     @default("[]") // [{name, grams, cal, pro}]
+  
+  // Per-meal breakdowns
+  breakfastCalories Int?
+  breakfastProtein  Float?
+  lunchCalories     Int?
+  lunchProtein      Float?
+  dinnerCalories    Int?
+  dinnerProtein     Float?
+  snackCalories     Int?
+  snackProtein      Float?
+
+  totalCalories Int?
+  totalProtein  Float? // grams
+  totalCarbs    Float? // grams
+  totalFat      Float? // grams
+  waterIntake   Float? // litres
+  createdAt     DateTime @default(now())
+
+  progressLog ProgressLog @relation(fields: [progressLogId], references: [id], onDelete: Cascade)
+
+  @@index([progressLogId])
+  @@map("diet_logs")
+}
+
+// ─────────────────────────────────────────
+// WORKOUT LOG
+// ─────────────────────────────────────────
+
+model WorkoutLog {
+  id              String   @id @default(cuid())
+  progressLogId   String
+  exercise        String
+  sets            Int?
+  reps            Int?
+  durationMinutes Int?
+  caloriesBurned  Int?
+  isCompleted     Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  progressLog ProgressLog @relation(fields: [progressLogId], references: [id], onDelete: Cascade)
+
+  @@index([progressLogId])
+  @@map("workout_logs")
+}
+
+// ─────────────────────────────────────────
+// YOGA LOG
+// ─────────────────────────────────────────
+
+model YogaLog {
+  id              String   @id @default(cuid())
+  progressLogId   String
+  pose            String
+  durationMinutes Int?
+  isCompleted     Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  progressLog ProgressLog @relation(fields: [progressLogId], references: [id], onDelete: Cascade)
+
+  @@index([progressLogId])
+  @@map("yoga_logs")
+}
+
+// ─────────────────────────────────────────
+// TRAINER NOTE
+// ─────────────────────────────────────────
+
+model TrainerNote {
+  id        String   @id @default(cuid())
+  trainerId String
+  clientId  String
+  note      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trainer User @relation("TrainerNoteAuthor", fields: [trainerId], references: [id])
+  client  User @relation("TrainerNoteClient", fields: [clientId], references: [id])
+
+  @@index([trainerId])
+  @@index([clientId])
+  @@map("trainer_notes")
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATION
+// ─────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json? // extra payload
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────
+// AUTH TOKENS
+// ─────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+model OTPCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("otp_codes")
+}
+
+model AIGenerationLog {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String // gemini, openai, grok
+  model        String
+  inputTokens  Int?
+  outputTokens Int?
+  totalTokens  Int?
+  latencyMs    Int?
+  status       String // success, failure
+  error        String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("ai_generation_logs")
+}

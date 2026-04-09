@@ -1,0 +1,6 @@
+﻿
+> fitai-hub-mobile@1.0.0 type-check
+> tsc --noEmit
+
+../../../nodes/ZohoSign/GenericFunctions.ts(16,2): error TS6196: 'IRequest' is declared but never used.
+../../../nodes/ZohoSign/GenericFunctions.ts(148,8): error TS6133: 'fileName' is declared but its value is never read.

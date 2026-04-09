@@ -1,0 +1,5 @@
+﻿
+> fitai-hub-mobile@1.0.0 type-check
+> tsc --noEmit
+
+app/(tabs)/plan.tsx(39,28): error TS2339: Property 'preferences' does not exist on type 'UserProfile'.
