@@ -12,6 +12,7 @@
     "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
+    "vercel-build": "prisma generate",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"
   },
