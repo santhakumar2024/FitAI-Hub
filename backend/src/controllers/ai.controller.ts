@@ -138,16 +138,22 @@ export const getPlanByDate = async (req: Request, res: Response, next: NextFunct
     const diffTime = targetDate.getTime() - startDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    // Cycle the plan if it exceeds duration (e.g., day 8 of a 7-day plan loops to day 1)
-    const dayNumber = (diffDays % plan.durationDays) + 1;
-
-    if (dayNumber < 1) {
+    if (diffDays < 0) {
       notFound(res, 'Requested date is before the plan start date');
       return;
     }
 
-    const dayKey = `day${dayNumber}`;
-    const dailyPlan = (plan.generatedPlan as any)?.dailyPlan?.[dayKey];
+    // Try full duration cycle first, fallback to 7-day foundational cycle if day is missing
+    let dayNumber = (diffDays % plan.durationDays) + 1;
+    let dayKey = `day${dayNumber}`;
+    let dailyPlan = (plan.generatedPlan as any)?.dailyPlan?.[dayKey];
+
+    if (!dailyPlan && plan.durationDays > 7) {
+      // Fallback to 7-day cyclical model
+      dayNumber = (diffDays % 7) + 1;
+      dayKey = `day${dayNumber}`;
+      dailyPlan = (plan.generatedPlan as any)?.dailyPlan?.[dayKey];
+    }
 
     if (!dailyPlan) {
       notFound(res, 'No plan found for this date');

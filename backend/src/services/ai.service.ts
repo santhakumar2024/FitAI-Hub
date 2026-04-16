@@ -60,14 +60,19 @@ const buildUserPrompt = (input: GeneratePlanInput): string => {
   const dateStr = today.toISOString().split('T')[0];
   const dayOfWeek = today.toLocaleString('en-US', { weekday: 'long' });
 
-  return `Architect a ${durationDays}-day fitness journey:
+  return `Architect a ${durationDays}-day fitness journey using a 7-DAY FOUNDATIONAL PATTERN.
 - User: ${age}y ${gender}, ${height}cm/${weight}kg (BMI: ${bmi})
 - Context: ${activityLevel}, Conditions: ${medicalConditions.join(', ') || 'None'}
-- Goals: ${goals.join(', ')}, Preferences: ${preferences.join(', ') || 'None'}
+- Goals: ${goals.join(', ')}
 - Timeline: Plan starts exactly on ${dateStr} (${dayOfWeek}). 
-- Instruction: Optimize Day 1 in the JSON response for the start date and day of the week.
 
-RESPONSE SCHEMA (STRICT):
+INSTRUCTIONS (FOR SPEED):
+1. Provide exactly 7 days (Day 1-7).
+2. Descriptions: BE CONCISE (max 10 words per item). 
+3. Logic: This split will repeat for ${durationDays} days.
+4. Language: Simplified English/Hindi context.
+
+RESPONSE SCHEMA (STRICT JSON):
 {
   "dailyPlan": {
     "day1": {
@@ -83,11 +88,10 @@ RESPONSE SCHEMA (STRICT):
       "yoga": [{ "pose": "str", "benefits": "str", "duration": "str" }],
       "tip": "str",
       "calBurn": num
-    } // ... repeat to day${durationDays}
+    } // ... repeat to day7
   },
   "summary": {"tdee": num, "dailyCal": num, "macros": {"p": num, "c": num, "f": num}},
-  "notes": "str",
-  ${medicalConditions.length > 0 ? '"disclaimer": "str",' : ''}
+  "notes": "Progression tips for ${durationDays} days.",
   "hydration": "str"
 }`;
 };

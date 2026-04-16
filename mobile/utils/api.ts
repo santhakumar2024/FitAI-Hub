@@ -76,6 +76,7 @@ api.interceptors.response.use(
     
     if (!error.response) {
       userMessage = 'Connection Error: Unable to reach the server. Check your internet or backend IP.';
+      console.error(`🔌 [DEBUG] Network/Timeout Info: Code=${error.code}, Message=${error.message}`);
     } else if (error.response?.data?.message) {
       userMessage = error.response.data.message;
     } else if (status === 404) {

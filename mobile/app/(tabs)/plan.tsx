@@ -15,6 +15,7 @@ import { RootState, AppDispatch } from '../../store';
 import { fetchTodayPlan, generatePlanThunk } from '../../store/slices/planSlice';
 import { createDailyLogThunk } from '../../store/slices/logSlice';
 import { useTheme } from '../../hooks/useTheme';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
 
 const { width } = Dimensions.get('window');
 type Tab = 'diet' | 'workout' | 'yoga';
@@ -113,8 +114,11 @@ export default function AIPlanScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <LoadingOverlay visible={isGenerating} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16, backgroundColor: colors.bgSurface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="chevron-back" size={24} color={colors.textPrimary} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} disabled={isGenerating}>
+          <Ionicons name="chevron-back" size={24} color={isGenerating ? colors.textMuted : colors.textPrimary} />
+        </TouchableOpacity>
         <Text style={{ fontSize: 17, fontWeight: '900', color: colors.textPrimary }}>AI ARCHITECT</Text>
         <TouchableOpacity onPress={() => router.push('/notifications' as any)}><Ionicons name="notifications-outline" size={24} color={colors.textPrimary} /></TouchableOpacity>
       </View>
@@ -259,6 +263,13 @@ export default function AIPlanScreen() {
                  ))}
                </View>
              </View>
+
+             <View style={{ marginBottom: 16, alignItems: 'center' }}>
+               <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
+                 Preparation usually takes 10-15 seconds.{"\n"}This designing your unique flow.
+               </Text>
+             </View>
+
              <TouchableOpacity 
                onPress={() => dispatch(generatePlanThunk({
                  ...formData,
@@ -269,7 +280,7 @@ export default function AIPlanScreen() {
                disabled={isGenerating}
              >
                <LinearGradient colors={[colors.primary, colors.primaryDark]} style={{ borderRadius: 20, padding: 20, alignItems: 'center' }}>
-                 {isGenerating ? <ActivityIndicator color="white" /> : <Text style={{ color: 'white', fontWeight: '900' }}>ARCHITECT MY FLOW</Text>}
+                 <Text style={{ color: 'white', fontWeight: '900', letterSpacing: 1 }}>ARCHITECT MY FLOW</Text>
                </LinearGradient>
              </TouchableOpacity>
            </View>
