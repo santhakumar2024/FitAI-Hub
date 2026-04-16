@@ -38,8 +38,10 @@ export const loggingMiddleware = (req: Request, res: Response, next: NextFunctio
     const message = `API Response: ${statusCode} (${duration}ms)`;
 
     if (statusCode >= 400) {
+      console.log(`❌ [API ${statusCode}] ${method} ${url} - ${duration}ms`);
       logger.error(message, logData);
     } else {
+      console.log(`✅ [API ${statusCode}] ${method} ${url} - ${duration}ms`);
       logger.info(message, logData);
     }
   });

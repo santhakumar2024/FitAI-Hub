@@ -79,6 +79,7 @@ export default function DailyLogScreen() {
   const updateFoodItem = (mealKey: string, index: number, field: string, value: any) => {
     const newDiet = { ...diet };
     const items = [...(newDiet as any)[mealKey]];
+    const oldItem = items[index];
     items[index] = { ...items[index], [field]: value };
     (newDiet as any)[mealKey] = items;
     
@@ -95,6 +96,13 @@ export default function DailyLogScreen() {
     newDiet.totalProtein = totalPro;
     
     setDiet(newDiet);
+
+    // AI AUTO-SCAN: If both name and grams are now present, and we just changed one of them, trigger scan
+    const newItem = items[index];
+    if (newItem.name && newItem.grams && !newItem.cal && !newItem.isScanning) {
+       // We only trigger if it's the first time or if the values are meaningful
+       fetchAINutrition(mealKey, index);
+    }
   };
 
   const removeFoodItem = (mealKey: string, index: number) => {

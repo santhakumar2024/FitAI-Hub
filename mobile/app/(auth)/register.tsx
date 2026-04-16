@@ -107,7 +107,7 @@ export default function RegisterScreen() {
       router.replace('/(auth)/onboarding' as any);
     } else {
       const msg = (result.payload as string) ?? 'Account creation failed. Please try again.';
-      Alert.alert('Enrollment Error', msg);
+      Alert.alert('Signup Error', msg);
     }
   };
 

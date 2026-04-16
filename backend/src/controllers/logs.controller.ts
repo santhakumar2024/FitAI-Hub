@@ -6,6 +6,7 @@ import { prisma } from '../config/db';
 import { calculateBMI } from '../utils/helpers';
 import { ok, created, notFound } from '../utils/apiResponse';
 import { parseDate, buildPaginationMeta } from '../utils/helpers';
+import { estimateSingleFoodNutrition } from '../services/ai.service';
 
 // ─────────────────────────────────────────
 // POST /logs/daily
@@ -59,40 +60,77 @@ export const createDailyLog = async (req: Request, res: Response, next: NextFunc
       },
     });
 
-    // Handle diet log
+    // Handle diet log with background AI scanning
     if (diet) {
+      let finalTotalCalories = diet.totalCalories || 0;
+      let finalTotalProtein = diet.totalProtein || 0;
+
+      // Identify and scan items that need AI estimation (name/grams present, but 0/missing macros)
+      const meals = ['breakfast', 'lunch', 'dinner', 'snacks'];
+      for (const mealKey of meals) {
+        const mealItems = diet[mealKey];
+        if (Array.isArray(mealItems)) {
+          for (let i = 0; i < mealItems.length; i++) {
+            const item = mealItems[i];
+            const needsScan = item.name && item.grams && (!item.calories || item.calories === 0);
+            
+            if (needsScan) {
+              try {
+                const scan = await estimateSingleFoodNutrition(item.name, parseFloat(String(item.grams)));
+                mealItems[i] = {
+                  ...item,
+                  calories: scan.calories,
+                  protein: scan.protein,
+                  carbs: scan.carbs,
+                  fat: scan.fat,
+                  vitamins: scan.vitamins,
+                  minerals: scan.minerals
+                };
+                // Accumulate to total if not already included
+                finalTotalCalories += scan.calories;
+                finalTotalProtein += scan.protein;
+              } catch (e) {
+                console.error(`❌ Background scan failed for ${item.name}:`, e);
+              }
+            }
+          }
+        }
+      }
+
       const existingDiet = await (prisma.dietLog as any).findFirst({
         where: { progressLogId: progressLog.id }
       });
 
+      const dietData = {
+        breakfast: diet.breakfast,
+        lunch: diet.lunch,
+        dinner: diet.dinner,
+        snacks: diet.snacks,
+        breakfastCalories: diet.breakfastCalories,
+        breakfastProtein: diet.breakfastProtein,
+        lunchCalories: diet.lunchCalories,
+        lunchProtein: diet.lunchProtein,
+        dinnerCalories: diet.dinnerCalories,
+        dinnerProtein: diet.dinnerProtein,
+        snackCalories: diet.snackCalories,
+        snackProtein: diet.snackProtein,
+        totalCalories: finalTotalCalories,
+        totalProtein: finalTotalProtein,
+        totalCarbs: diet.totalCarbs,
+        totalFat: diet.totalFat,
+        waterIntake: diet.waterIntake,
+      };
+
       if (existingDiet) {
         await (prisma.dietLog as any).update({
           where: { id: existingDiet.id },
-          data: {
-            breakfast: diet.breakfast,
-            lunch: diet.lunch,
-            dinner: diet.dinner,
-            snacks: diet.snacks,
-            breakfastCalories: diet.breakfastCalories,
-            breakfastProtein: diet.breakfastProtein,
-            lunchCalories: diet.lunchCalories,
-            lunchProtein: diet.lunchProtein,
-            dinnerCalories: diet.dinnerCalories,
-            dinnerProtein: diet.dinnerProtein,
-            snackCalories: diet.snackCalories,
-            snackProtein: diet.snackProtein,
-            totalCalories: diet.totalCalories,
-            totalProtein: diet.totalProtein,
-            totalCarbs: diet.totalCarbs,
-            totalFat: diet.totalFat,
-            waterIntake: diet.waterIntake,
-          },
+          data: dietData,
         });
       } else {
         await (prisma.dietLog as any).create({
           data: {
             progressLogId: progressLog.id,
-            ...diet
+            ...dietData
           },
         });
       }

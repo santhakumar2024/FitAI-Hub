@@ -213,12 +213,13 @@ export default function CalendarScreen() {
             </View>
           ) : (
             <View>
-                  : 'Your Progress'} — {format(new Date(selectedDate + 'T12:00:00'), 'MMMM do')}
+              <Text style={{ fontSize: 13, fontWeight: '900', color: colors.textMuted, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' }}>
+                {isTrainer ? `${selectedClient.name}'s Progress` : 'Your Progress'} — {format(new Date(selectedDate + 'T12:00:00'), 'MMMM do')}
               </Text>
 
               {loading ? (
                 <ActivityIndicator color={colors.primary} size="large" />
-              ) : (
+              ) : dayData ? (
                 <View style={{ gap: 15 }}>
                   {/* AI Recommendation Card (NEW) */}
                   {aiRecommendation && (
@@ -323,11 +324,6 @@ export default function CalendarScreen() {
                   {/* Notes */}
                   {dayData.notes && (
                     <View style={{ backgroundColor: `${colors.primary}08`, padding: 16, borderRadius: 16, borderLeftWidth: 3, borderLeftColor: colors.primary }}>
-                      <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>"{dayData.notes}"</Text>
-                    </View>
-                  )}
-                </View>
-ary }}>
                       <Text style={{ color: colors.textSecondary, fontStyle: 'italic' }}>"{dayData.notes}"</Text>
                     </View>
                   )}
