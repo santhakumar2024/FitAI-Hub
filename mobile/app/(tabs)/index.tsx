@@ -17,6 +17,8 @@ import { fetchTodayPlan } from '../../store/slices/planSlice';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
 import { setSelectedGymId } from '../../store/slices/gymSlice';
+import { ErrorState } from '../../components/ErrorState';
+import { EmptyState } from '../../components/EmptyState';
  
 const { width } = Dimensions.get('window');
  
@@ -47,7 +49,7 @@ const StatPill = ({ icon, label, value, color, colors }: any) => (
     </View>
   </View>
 );
-
+ 
 export default function HomeScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -57,6 +59,8 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [ownerGyms, setOwnerGyms] = useState<any[]>([]);
   const [ownerStats, setOwnerStats] = useState<any>(null);
@@ -71,6 +75,8 @@ export default function HomeScreen() {
  
   const loadData = async () => {
     try {
+      setLoading(true);
+      setError(null);
       await dispatch(fetchProfile());
  
       if (role === 'NORMAL_USER') {
@@ -92,7 +98,7 @@ export default function HomeScreen() {
             : gyms[0].id;
           
           if (!selectedGymId) dispatch(setSelectedGymId(gymId));
-
+ 
           const statsRes = await api.get(`/gym/${gymId}/stats`);
           setOwnerStats(statsRes.data.data);
         }
@@ -100,8 +106,11 @@ export default function HomeScreen() {
         const res = await api.get('/clients');
         setTrainerClients(res.data.data || []);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.log('Error loading dashboard', err);
+      setError(err.userMessage || 'Could not load dashboard data.');
+    } finally {
+      setLoading(false);
     }
   };
  
@@ -110,6 +119,7 @@ export default function HomeScreen() {
     await loadData();
     setRefreshing(false);
   }, [role]);
+;
  
   const timeOfDay = () => {
     const h = new Date().getHours();
@@ -353,10 +363,27 @@ export default function HomeScreen() {
           </View>
         </View>
  
-        {role === 'NORMAL_USER' && renderNormalUserDashboard()}
-        {role === 'TRAINER' && renderTrainerDashboard()}
-        {role === 'GYM_OWNER' && renderOwnerDashboard()}
+        {loading && !refreshing ? (
+          <View style={{ padding: 60, alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 16, fontWeight: '700' }}>Syncing dashboard...</Text>
+          </View>
+        ) : error ? (
+          <View style={{ paddingHorizontal: 24, marginTop: 20 }}>
+            <ErrorState 
+              message={error} 
+              onRetry={loadData} 
+            />
+          </View>
+        ) : (
+          <>
+            {role === 'NORMAL_USER' && renderNormalUserDashboard()}
+            {role === 'TRAINER' && renderTrainerDashboard()}
+            {role === 'GYM_OWNER' && renderOwnerDashboard()}
+          </>
+        )}
 
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );

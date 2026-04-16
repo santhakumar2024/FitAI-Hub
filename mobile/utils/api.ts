@@ -54,7 +54,7 @@ api.interceptors.request.use(
 );
 
 // ─────────────────────────────────────────
-// RESPONSE INTERCEPTOR — Handle 401 + refresh
+// RESPONSE INTERCEPTOR — Handle 401 + refresh + Global Error Formatting
 // ─────────────────────────────────────────
 api.interceptors.response.use(
   (response) => {
@@ -70,9 +70,31 @@ api.interceptors.response.use(
     // --- LOGGING ERROR ---
     const status = error.response?.status;
     const url = error.config?.url;
-    const message = error.response?.data?.message || error.message;
-    console.error(`❌ [API ERROR] ${status || 'NETWORK'} ${url}`);
-    console.error(`💥 Message: ${message}`);
+    
+    // Normalize user-friendly message
+    let userMessage = 'Something went wrong. Please try again.';
+    
+    if (!error.response) {
+      userMessage = 'Connection Error: Unable to reach the server. Check your internet or backend IP.';
+    } else if (error.response?.data?.message) {
+      userMessage = error.response.data.message;
+    } else if (status === 404) {
+      userMessage = 'Resource not found or API endpoint is invalid (404).';
+    } else if (status === 500) {
+      userMessage = 'Internal Server Error. Our team has been notified.';
+    }
+
+    if (status === 404) {
+      console.warn(`⚠️ [API WARN] 404 ${url}`);
+      console.warn(`💬 Message: ${userMessage}`);
+    } else {
+      console.error(`❌ [API ERROR] ${status || 'NETWORK'} ${url}`);
+      console.error(`💥 Message: ${userMessage}`);
+    }
+    
+    // Attach userMessage to the error object for screens to use
+    error.userMessage = userMessage;
+
     if (error.response?.data?.errors) {
       console.error('📋 Validation Errors:', JSON.stringify(error.response.data.errors, null, 2));
     }
@@ -80,7 +102,8 @@ api.interceptors.response.use(
 
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401 Unauthorized (Token Refresh)
+    if (status === 401 && !originalRequest._retry) {
       console.log('🔄 Token expired, attempting refresh...');
       originalRequest._retry = true;
 
@@ -101,10 +124,8 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         console.error('💀 Refresh failed, logging out...');
-        // Refresh failed — clear tokens and redirect to login
         await SecureStore.deleteItemAsync('accessToken');
         await SecureStore.deleteItemAsync('refreshToken');
-        // App will detect missing token and show login
       }
     }
 

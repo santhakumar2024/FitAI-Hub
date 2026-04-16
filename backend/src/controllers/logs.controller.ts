@@ -202,7 +202,7 @@ export const getDailyLog = async (req: Request, res: Response, next: NextFunctio
     });
 
     if (!log) {
-      notFound(res, 'No log found for this date');
+      ok(res, 'No log found for this date', null);
       return;
     }
 

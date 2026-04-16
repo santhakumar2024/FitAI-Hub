@@ -106,7 +106,7 @@ export default function RegisterScreen() {
     if (registerThunk.fulfilled.match(result)) {
       router.replace('/(auth)/onboarding' as any);
     } else {
-      const msg = (result.payload as string) ?? 'Account creation failed. Please try again.';
+      const msg = (result.payload as string) || 'Account creation failed. Please check your connection or try again.';
       Alert.alert('Signup Error', msg);
     }
   };

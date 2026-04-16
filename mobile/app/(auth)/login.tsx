@@ -34,7 +34,8 @@ export default function LoginScreen() {
     if (loginThunk.fulfilled.match(result)) {
       router.replace('/(tabs)');
     } else {
-      Alert.alert('Entry Denied', 'The credentials provided do not match our records. Please verify and try again.');
+      const msg = (result.payload as string) || 'Entry Denied. Please check your connection and try again.';
+      Alert.alert('Entry Denied', msg);
     }
   };
 
