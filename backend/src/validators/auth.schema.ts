@@ -14,6 +14,17 @@ export const registerSchema = z.object({
   phone: z.string().optional(),
   role: z.enum(['NORMAL_USER', 'GYM_OWNER', 'TRAINER']).default('NORMAL_USER'),
   isFreelance: z.boolean().optional().default(false),
+  
+  // Optional Fitness Profile Fields
+  age: z.number().int().optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  height: z.number().optional(),
+  weight: z.number().optional(),
+  bmi: z.number().optional(),
+  medicalConditions: z.array(z.string()).optional().default([]),
+  goals: z.array(z.string()).optional().default([]),
+  activityLevel: z.enum(['sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extra_active']).optional(),
+  preferences: z.array(z.string()).optional().default([]),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],

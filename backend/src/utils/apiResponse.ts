@@ -60,6 +60,9 @@ export const ok = <T>(res: Response, message: string, data?: T, meta?: ApiSucces
 export const created = <T>(res: Response, message: string, data?: T) =>
   sendSuccess(res, message, data, 201);
 
+export const noContent = (res: Response, message: string) =>
+  sendSuccess(res, message, undefined, 204);
+
 export const badRequest = (res: Response, message: string, error?: unknown) =>
   sendError(res, message, 400, error);
 

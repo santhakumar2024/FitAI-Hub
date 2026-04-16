@@ -1,0 +1,35 @@
+export declare const config: {
+    nodeEnv: string;
+    port: number;
+    apiBaseUrl: string;
+    frontendUrl: string;
+    databaseUrl: string;
+    jwtSecret: string;
+    jwtExpiresIn: string;
+    refreshTokenSecret: string;
+    refreshTokenExpiresIn: string;
+    bcryptRounds: number;
+    corsOrigin: string[];
+    openaiApiKey: string;
+    openaiModel: string;
+    geminiApiKey: string;
+    geminiModel: string;
+    grokApiKey: string;
+    grokBaseUrl: string;
+    aiProvider: "openai" | "grok" | "gemini";
+    razorpayKeyId: string;
+    razorpayKeySecret: string;
+    razorpayWebhookSecret: string;
+    twilioAccountSid: string;
+    twilioAuthToken: string;
+    twilioPhoneNumber: string;
+    firebaseProjectId: string;
+    firebasePrivateKeyId: string;
+    firebasePrivateKey: string;
+    firebaseClientEmail: string;
+    firebaseClientId: string;
+    rateLimitWindowMs: number;
+    rateLimitMaxRequests: number;
+    otpExpiryMinutes: number;
+};
+//# sourceMappingURL=env.d.ts.map

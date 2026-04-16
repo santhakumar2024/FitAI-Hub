@@ -23,8 +23,10 @@ export const getMyProfile = async (req: Request, res: Response, next: NextFuncti
         jobNature: true, trainingStyle: true, targetWeight: true, daysPerWeek: true,
         timePerSession: true, themePreference: true,
         isEmailVerified: true, lastLoginAt: true, createdAt: true,
-        subscription: {
+        subscriptions: {
           select: { status: true, planType: true, trialEndsAt: true, currentPeriodEnd: true },
+          take: 1,
+          orderBy: { createdAt: 'desc' }
         },
         gym: { select: { id: true, name: true } },
       },
@@ -44,7 +46,7 @@ export const getMyProfile = async (req: Request, res: Response, next: NextFuncti
 
     ok(res, 'Profile retrieved', {
       ...user,
-      subscriptionStatus: user.subscription?.status,
+      subscriptionStatus: user.subscriptions[0]?.status,
       streak: latestLog?.streak ?? 0,
     });
   } catch (error) {

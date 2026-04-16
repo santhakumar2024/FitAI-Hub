@@ -6,7 +6,7 @@ import { generateQuickTip } from '../services/ai.service';
 
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/db';
-import { ok, created, noContent } from '../utils/apiResponse';
+import { ok, created, noContent, notFound, conflict } from '../utils/apiResponse';
 import { PlanType, SubscriptionStatus } from '@prisma/client';
 import { addDays } from '../utils/helpers';
 import { Role } from '@prisma/client';

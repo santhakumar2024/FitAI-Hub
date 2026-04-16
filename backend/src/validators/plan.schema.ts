@@ -15,6 +15,7 @@ export const generatePlanSchema = z.object({
     .default('moderately_active'),
   preferences: z.array(z.string()).default([]),
   durationDays: z.number().int().min(1).max(30).default(7),
+  bmi: z.number().optional().default(0),
 });
 
 export type GeneratePlanInput = z.infer<typeof generatePlanSchema>;

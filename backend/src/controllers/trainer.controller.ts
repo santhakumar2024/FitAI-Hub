@@ -37,7 +37,7 @@ export const getMyClients = async (req: Request, res: Response, next: NextFuncti
             select: {
               id: true, name: true, email: true, phone: true, age: true, gender: true,
               bmi: true, weight: true, height: true, goals: true, photoUrl: true,
-              subscription: { select: { status: true, planType: true } },
+              subscriptions: { select: { status: true, planType: true }, take: 1, orderBy: { createdAt: 'desc' } },
             },
           },
         },
@@ -45,7 +45,11 @@ export const getMyClients = async (req: Request, res: Response, next: NextFuncti
       prisma.clientTrainer.count({ where: whereClause }),
     ]);
 
-    const clients = relations.map((r) => ({ ...r.client, assignedAt: r.assignedAt }));
+    const clients = (relations as any[]).map((r) => ({ 
+      ...r.client, 
+      subscriptionStatus: r.client.subscriptions[0]?.status,
+      assignedAt: r.assignedAt 
+    }));
 
     ok(res, 'Clients retrieved', clients, buildPaginationMeta(total, Number(page), Number(limit)));
   } catch (error) {
@@ -77,7 +81,7 @@ export const getClientById = async (req: Request, res: Response, next: NextFunct
         id: true, name: true, email: true, phone: true, age: true, gender: true,
         height: true, weight: true, bmi: true, goals: true, medicalConditions: true,
         activityLevel: true, photoUrl: true, createdAt: true,
-        subscription: { select: { status: true, planType: true, trialEndsAt: true } },
+        subscriptions: { select: { status: true, planType: true, trialEndsAt: true }, take: 1, orderBy: { createdAt: 'desc' } },
         aiPlans: {
           where: { isActive: true },
           select: { id: true, version: true, isManuallyEdited: true, generatedAt: true },
@@ -91,7 +95,10 @@ export const getClientById = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
-    ok(res, 'Client details retrieved', client);
+    ok(res, 'Client details retrieved', {
+      ...client,
+      subscriptionStatus: client.subscriptions[0]?.status,
+    });
   } catch (error) {
     next(error);
   }

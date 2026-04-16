@@ -4,6 +4,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, JwtPayload } from '../utils/jwt';
 import { prisma } from '../config/db';
+import { logger } from '../utils/logger';
 import { unauthorized, forbidden } from '../utils/apiResponse';
 import { Role } from '@prisma/client';
 

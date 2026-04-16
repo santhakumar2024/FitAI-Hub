@@ -50,6 +50,12 @@ Rules:
 // USER PROMPT BUILDER
 // ─────────────────────────────────────────
 
+const buildUserPrompt = (input: GeneratePlanInput): string => {
+  const { 
+    durationDays, age, gender, height, weight, bmi, 
+    activityLevel, medicalConditions, goals, preferences 
+  } = input;
+
   const today = new Date();
   const dateStr = today.toISOString().split('T')[0];
   const dayOfWeek = today.toLocaleString('en-US', { weekday: 'long' });
