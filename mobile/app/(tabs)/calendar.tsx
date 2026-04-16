@@ -1,27 +1,29 @@
-// app/(tabs)/calendar.tsx
-// Role-Aware Calendar: NORMAL_USER = personal logs | TRAINER = client selector + client logs
-
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, Modal,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../store';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../store';
 import { useTheme } from '../../hooks/useTheme';
 import { api } from '../../utils/api';
 import { format } from 'date-fns';
 import { ErrorState } from '../../components/ErrorState';
 import { EmptyState } from '../../components/EmptyState';
+import { createDailyLogThunk } from '../../store/slices/logSlice';
+import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function CalendarScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const role = user?.role || 'NORMAL_USER';
 
-   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [dayData, setDayData] = useState<any>(null);
   const [aiRecommendation, setAiRecommendation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -34,6 +36,7 @@ export default function CalendarScreen() {
   const [showClientPicker, setShowClientPicker] = useState(false);
 
   const isTrainer = role === 'TRAINER';
+  const isToday = selectedDate === todayStr;
 
   useEffect(() => {
     if (isTrainer) {
@@ -44,14 +47,8 @@ export default function CalendarScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isTrainer && selectedClient) {
-      fetchClientHistory(selectedClient.id);
-      fetchClientDayData(selectedClient.id, selectedDate);
-    }
-  }, [selectedClient]);
+  // ... (keeping fetchHistory, fetchDayData, fetchTrainerClients, fetchClientHistory, fetchClientDayData)
 
-  // ─── Normal User ───────────────────────────────────────────
   const fetchHistory = async () => {
     try {
       const res = await api.get('/logs/history', { params: { limit: 100 } });
@@ -102,7 +99,6 @@ export default function CalendarScreen() {
     }
   };
 
-  // ─── Trainer ───────────────────────────────────────────────
   const fetchTrainerClients = async () => {
     try {
       const res = await api.get('/clients');
@@ -163,6 +159,37 @@ export default function CalendarScreen() {
     }
   };
 
+  const handleQuickLog = async (label: string, mealData: any) => {
+    if (!mealData) return;
+    
+    const result = await dispatch(createDailyLogThunk({
+      date: selectedDate,
+      diet: {
+        [label.toLowerCase()]: mealData.name,
+        totalCalories: mealData.cal,
+        totalProtein: mealData.prot
+      },
+      notes: `Logged AI Recommendation from Calendar.`
+    }));
+
+    if (createDailyLogThunk.fulfilled.match(result)) {
+      Alert.alert('Success', `${label} has been logged to your daily progress!`);
+      fetchDayData(selectedDate);
+    }
+  };
+
+  const navigateToSession = (type: 'workout' | 'yoga') => {
+    // Only allow starting sessions for today (consistent with user request)
+    if (!isToday) {
+      Alert.alert('View Only', `You can only start sessions for the current date.`);
+      return;
+    }
+    router.push({
+      pathname: type === 'workout' ? '/workout-session' : '/yoga-session',
+      params: { date: selectedDate }
+    } as any);
+  };
+
   const calendarTheme = {
     backgroundColor: colors.bgSurface,
     calendarBackground: colors.bgSurface,
@@ -192,6 +219,7 @@ export default function CalendarScreen() {
             <Text style={{ fontSize: 24, fontWeight: '900', color: colors.textPrimary }}>
               {isTrainer ? 'Client Calendar' : 'Mastery Calendar'}
             </Text>
+            {isToday && <View style={{ backgroundColor: `${colors.primary}15`, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}><Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900' }}>TODAY ACTIVE</Text></View>}
           </View>
 
           {/* Trainer: Client Selector */}
@@ -225,7 +253,7 @@ export default function CalendarScreen() {
             />
           </View>
 
-          {/* Day Data */}
+          {/* Day Data Container */}
           {isTrainer && !selectedClient ? (
             <View style={{ backgroundColor: colors.bgSurface, padding: 40, borderRadius: 20, alignItems: 'center' }}>
               <Ionicons name="people-outline" size={48} color={colors.textMuted} />
@@ -235,9 +263,14 @@ export default function CalendarScreen() {
             </View>
           ) : (
             <View>
-              <Text style={{ fontSize: 13, fontWeight: '900', color: colors.textMuted, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' }}>
-                {isTrainer ? `${selectedClient.name}'s Progress` : 'Your Progress'} — {format(new Date(selectedDate + 'T12:00:00'), 'MMMM do')}
-              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 14 }}>
+                <Text style={{ fontSize: 13, fontWeight: '900', color: colors.textMuted, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                  {isTrainer ? `${selectedClient.name}'s History` : isToday ? 'TODAY\'S FLOW' : 'PAST PROGRESS'}
+                </Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary }}>
+                  {format(new Date(selectedDate + 'T12:00:00'), 'MMMM do')}
+                </Text>
+              </View>
 
                {loading ? (
                 <View style={{ padding: 40 }}>
@@ -248,24 +281,104 @@ export default function CalendarScreen() {
                   message={error} 
                   onRetry={() => fetchDayData(selectedDate)} 
                 />
-              ) : dayData ? (
-                <View style={{ gap: 15 }}>
-                  {/* ... contents ... */}
-                </View>
               ) : (
-                <EmptyState 
-                  title="No activity logged"
-                  message="There are no logs for this date. Go to Log Daily to add your activity!"
-                  icon="calendar-outline"
-                />
+                <View style={{ gap: 24 }}>
+                  
+                  {/* --- Actual Logged Data (If exists) --- */}
+                  {dayData && (
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="checkmark-circle" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 14, fontWeight: '900', color: colors.primary }}>LOGGED ACTIVITY</Text>
+                      </View>
+                      <View style={{ backgroundColor: `${colors.primary}05`, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed' }}>
+                         {dayData.diet && (
+                           <View style={{ marginBottom: 12 }}>
+                             <Text style={{ color: colors.textSecondary, fontSize: 10, fontWeight: '800', marginBottom: 4 }}>ACTUAL NUTRITION</Text>
+                             <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>{Object.values(dayData.diet).filter(v => typeof v === 'string').join(', ')}</Text>
+                           </View>
+                         )}
+                         {dayData.workout && <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>✅ Workout Completed</Text>}
+                         {!dayData.diet && !dayData.workout && <Text style={{ color: colors.textMuted }}>Details not found for this log.</Text>}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* --- AI Recommendations Section --- */}
+                  {aiRecommendation ? (
+                    <View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="sparkles" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                        <Text style={{ fontSize: 14, fontWeight: '900', color: colors.textPrimary }}>AI SUGGESTED STRATEGY</Text>
+                      </View>
+
+                      {/* Diet Recs */}
+                      <View style={{ gap: 12, marginBottom: 20 }}>
+                        {[
+                          { label: 'Breakfast', key: 'm1_bk' },
+                          { label: 'Lunch', key: 'm2_ln' },
+                          { label: 'Dinner', key: 'm3_dn' }
+                        ].map((meal) => {
+                          const m = aiRecommendation.diet?.[meal.key];
+                          if (!m) return null;
+                          return (
+                            <View key={meal.key} style={{ backgroundColor: colors.bgSurface, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900', marginBottom: 2 }}>{meal.label.toUpperCase()}</Text>
+                                <Text style={{ color: colors.textPrimary, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>{m.name}</Text>
+                                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{m.cal} kcal • {m.prot}g Protein</Text>
+                              </View>
+                              {isToday && (
+                                <TouchableOpacity 
+                                  onPress={() => handleQuickLog(meal.label, m)}
+                                  style={{ backgroundColor: `${colors.primary}15`, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+                                >
+                                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '900' }}>LOG IT</Text>
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+
+                      {/* Workout/Yoga Recs */}
+                      <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <TouchableOpacity 
+                          onPress={() => navigateToSession('workout')}
+                          style={{ flex: 1, backgroundColor: colors.bgSurface, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}
+                        >
+                          <Ionicons name="fitness-outline" size={24} color={colors.primary} style={{ marginBottom: 8 }} />
+                          <Text style={{ color: colors.textPrimary, fontWeight: '800', fontSize: 12 }}>WORKOUT</Text>
+                          {isToday && <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900', marginTop: 4 }}>START SESSION</Text>}
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                          onPress={() => navigateToSession('yoga')}
+                          style={{ flex: 1, backgroundColor: colors.bgSurface, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}
+                        >
+                          <Ionicons name="body-outline" size={24} color={colors.primary} style={{ marginBottom: 8 }} />
+                          <Text style={{ color: colors.textPrimary, fontWeight: '800', fontSize: 12 }}>YOGA</Text>
+                          {isToday && <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900', marginTop: 4 }}>START SESSION</Text>}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : !dayData && (
+                    <EmptyState 
+                      title="No strategy found"
+                      message="There are no AI plans found for this date. Visit the AI Architect to generate a plan!"
+                      icon="calendar-outline"
+                    />
+                  )}
+                </View>
               )}
             </View>
           )}
         </View>
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Client Picker Modal */}
-      <Modal visible={showClientPicker} animationType="slide" transparent>
+       {/* Client Picker Modal */}
+       <Modal visible={showClientPicker} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: colors.bgSurface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: '70%' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
