@@ -12,7 +12,7 @@
     "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "vercel-build": "prisma generate",
+    "vercel-build": "npx prisma generate",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit"
   },
@@ -31,6 +31,7 @@
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
     "openai": "^4.29.2",
+    "prisma": "^5.11.0",
     "razorpay": "^2.9.2",
     "twilio": "^5.0.4",
     "uuid": "^9.0.1",
@@ -47,7 +48,6 @@
     "@types/node": "^20.11.30",
     "@types/node-cron": "^3.0.11",
     "@types/uuid": "^9.0.8",
-    "prisma": "^5.11.0",
     "tsx": "^4.7.1",
     "typescript": "^5.4.3"
   },
